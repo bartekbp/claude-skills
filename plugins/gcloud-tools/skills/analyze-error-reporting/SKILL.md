@@ -105,12 +105,35 @@ Status meanings: **NEW** (first seen within the window), **REAPPEARED** (old gro
 ## Producing the Report
 
 1. Run the script. If `meta.coverage.complete` is `false`, pagination hit the cap — say there may be more groups.
-2. **Lead with `leads`** — the NEW and SPIKING groups. For each: status, logical service, current count, trend, first/last seen, the `frame` (kind + where), and the `stacks` block. This is the actionable headline; render it as a short table. **Check `stacks.distinct`**: if it is 1 (or the top stack's `sharePct` is high) the group is one real error — trust its `frame`; if `distinct` is high and `sharePct` low, the group is a mixed bucket, so call that out and use `stacks.top` (not `frame`) for what's actually firing.
+2. **Lead with `leads`** — the NEW and SPIKING groups. **Render each lead as its own block, NOT a table row** (stack traces do not fit in table cells). Per the readable layout below, show the **groupId**, **logical service**, **current count + trend**, the **distinct-stack count**, and the **most common one-to-three stacks**. **Check `stacks.distinct`**: if it is 1 (or the top stack's `sharePct` is high) the group is one real error — trust its `frame`; if `distinct` is high and `sharePct` low, flag it as a **mixed bucket** and use `stacks.top` (not `frame`) for what is actually firing.
 3. **Then `byService`** — which services carry the most error volume and the most new groups. Render sorted by `current`.
 4. **Summarize `summary`** — totals and how many groups are new/spiking/improved. Note `totalCurrent` vs `totalPrior` for the overall direction.
 5. **Do not dump every group.** `groups` is there for completeness; surface only what changed.
-6. **To judge severity or compare against code, drill down:** rerun with `--group <groupId>` to get the deduplicated distinct stacks (ranked by frequency), then reason about each failure mode (and, if asked, compare to the source). Bump `--events` to widen the sample.
+6. **To judge severity or compare against code, drill down:** rerun with `--group <groupId>` to get the deduplicated distinct stacks (ranked by frequency) with **full** stack messages, then render those as the per-stack traces in the layout below. Bump `--events` to widen the sample.
 7. Be honest about the window and granularity, and that `trendPct` is undefined for brand-new groups.
+
+### Readable layout (use this, not tables)
+
+Render each lead/group as a block. The compact `stacks.top` (kind + `where`) comes straight from the digest; the **full stack traces** come from `--group <groupId>` (its `stacks[].message`). Shorten noisy vendored frames — collapse `/app/node_modules/.pnpm/<pkg>/node_modules/` and `/app/node_modules/` to `…/` — and keep ~3–6 frames per stack. Mark each block 🟩 when `distinct` is 1 (one real cause) or 🟥 when it is a mixed bucket.
+
+```
+🟥 <groupId> · <service> · <current> errors (<trend>%)
+   distinct stacks in sample of <sampled>: <distinct>   ← high = coarse bucket
+   [1] <share>% (×<count>)  <error kind>
+          at <app frame>   (file:line)
+          at <next frame>  …/<pkg>/<file>:<line>
+          … (+N more frames)
+   [2] <share>% (×<count>)  <error kind>
+          at <app frame> …
+
+🟩 <groupId> · <service> · <current> errors (<trend>%)
+   distinct stacks in sample of <sampled>: 1   ← single real cause
+   [1] 100% (×<count>)  <error kind>
+          at <app frame>   (file:line)
+          … (+N more frames)
+```
+
+Lead with the 🟩 single-cause groups (those are the real, actionable defects); for 🟥 mixed buckets, say the labelled `frame` is misleading and list the top distinct kinds instead.
 
 ## Common Mistakes
 
