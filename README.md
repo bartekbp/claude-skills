@@ -1,15 +1,15 @@
 # claude-skills
 
-Bartek's personal [Claude Code](https://docs.claude.com/en/docs/claude-code) skills, packaged as a plugin marketplace.
+[Claude Code](https://docs.claude.com/en/docs/claude-code) skills, packaged as a plugin marketplace.
 
 ## Install
 
 ```
 /plugin marketplace add bartekbp/claude-skills
-/plugin install plan-tools@bartek-skills
+/plugin install plan-tools@bartekbp
 ```
 
-(`bartekbp/claude-skills` resolves to this private repo; Claude Code clones it over your authenticated GitHub access.)
+(`bartekbp/claude-skills` resolves to this repo; Claude Code clones it over your authenticated GitHub access. `bartekbp` after the `@` is the marketplace name, not the install target.)
 
 ## Plugins
 
@@ -22,7 +22,7 @@ Bartek's personal [Claude Code](https://docs.claude.com/en/docs/claude-code) ski
 ## Layout
 
 ```
-.claude-plugin/marketplace.json     # marketplace manifest
+.claude-plugin/marketplace.json     # marketplace manifest (name: bartekbp)
 plugins/
   plan-tools/
     .claude-plugin/plugin.json       # plugin manifest
@@ -34,4 +34,4 @@ plugins/
 
 1. Create `plugins/<plugin>/skills/<skill-name>/SKILL.md` with `name` + `description` frontmatter.
 2. Commit and push.
-3. In Claude Code: `/plugin marketplace update bartek-skills` to pull the latest.
+3. In Claude Code: `/plugin marketplace update bartekbp` to pull the latest.

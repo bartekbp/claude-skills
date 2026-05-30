@@ -1,11 +1,11 @@
 {
-  "name": "bartek-skills",
+  "name": "bartekbp",
   "owner": {
     "name": "Bartosz Polnik",
     "email": "bartoszpolnik@gmail.com"
   },
   "metadata": {
-    "description": "Bartek's personal Claude Code skills."
+    "description": "Claude Code skills and plugins."
   },
   "plugins": [
     {
