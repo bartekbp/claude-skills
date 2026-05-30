@@ -17,7 +17,7 @@
 
 | Skill | Triggers on |
 |-------|-------------|
-| `tightening-plans` | Right after the `superpowers:writing-plans` skill produces an implementation plan, or when you ask to shorten / condense / parallelize an existing plan. Merges trivial tasks and annotates parallelism, without dropping scope or executable detail. |
+| `optimizing-writing-plans` | Immediately after the `superpowers:writing-plans` skill produces an implementation plan. An independent second-pass review that checks the plan against its spec across four lenses (soundness, completeness, executability, brevity + parallelism) and applies the safe fixes in place, flagging judgment calls. |
 
 ## Layout
 
@@ -27,7 +27,7 @@ plugins/
   plan-tools/
     .claude-plugin/plugin.json       # plugin manifest
     skills/
-      tightening-plans/SKILL.md      # skill
+      optimizing-writing-plans/SKILL.md  # skill
 ```
 
 ## Adding a skill
