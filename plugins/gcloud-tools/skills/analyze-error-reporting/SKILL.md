@@ -42,8 +42,8 @@ Run from the skill's own directory (where `analyze.ts` lives), or use an absolut
 # Weekly digest (default window 7d)
 npx tsx analyze.ts --project my-project
 
-# Custom window / thresholds
-npx tsx analyze.ts --project my-project --window 14d --spike-ratio 3 --min-count 50
+# Custom window / thresholds (--lead-cap limits how many NEW/SPIKING groups become headline leads, default 15)
+npx tsx analyze.ts --project my-project --window 14d --spike-ratio 3 --min-count 50 --lead-cap 25
 
 # Control the per-lead distinct-stack enrichment (default: top 2 from a 60-event sample; 0 disables)
 npx tsx analyze.ts --project my-project --lead-stacks 3 --lead-sample 100

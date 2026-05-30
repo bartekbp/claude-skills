@@ -79,6 +79,19 @@ export function pickBucket(windowSec: number): number {
   return 3600; // hour-scale → hourly buckets (all windows are whole hours)
 }
 
+/**
+ * Parse a numeric CLI flag, failing loudly instead of letting `NaN` silently disable logic
+ * downstream (e.g. a bad --spike-ratio would otherwise make nothing ever classify SPIKING).
+ */
+export function numArg(name: string, raw: string, opts: { min?: number; int?: boolean } = {}): number {
+  const { min = -Infinity, int = false } = opts;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < min || (int && !Number.isInteger(n))) {
+    throw new Error(`invalid --${name} "${raw}" — expected a${int ? 'n integer' : ' number'}${min > -Infinity ? ` >= ${min}` : ''}`);
+  }
+  return n;
+}
+
 // ---------- Logical service name ----------
 
 /**
@@ -165,6 +178,7 @@ export function sumWindows(buckets: RawTimedCount[] | undefined, asOfMs: number,
   for (const b of buckets ?? []) {
     if (!b.endTime) continue;
     const t = Date.parse(b.endTime);
+    if (!Number.isFinite(t)) continue; // malformed timestamp — skip rather than mis-bin on NaN
     const c = Number(b.count ?? '0');
     if (t > currentStart) current += c;
     else if (t > priorStart) prior += c;
@@ -208,6 +222,15 @@ export interface GroupRow {
   affectedServices: number;
   resolutionStatus: string;
   frame: { kind: string; where: string };
+  stacks?: LeadStacks; // attached to leads only, in live runs — see compactStacks / main
+}
+
+/** Per-lead distinct-stack enrichment (live runs only). `error` is set if the sub-fetch failed. */
+export interface LeadStacks {
+  sampled: number;
+  distinct: number;
+  top: CompactStack[];
+  error?: string;
 }
 export interface ServiceRollup {
   service: string;
@@ -261,7 +284,11 @@ function durLabel(sec: number): string {
 export function buildDigest(raw: RawGroupStat[], opts: DigestOpts): Digest {
   // Reference time = the most recent bucket endTime across all groups (≈ now for live data).
   let asOfMs = 0;
-  for (const g of raw) for (const b of g.timedCounts ?? []) if (b.endTime) asOfMs = Math.max(asOfMs, Date.parse(b.endTime));
+  for (const g of raw)
+    for (const b of g.timedCounts ?? []) {
+      const t = b.endTime ? Date.parse(b.endTime) : NaN;
+      if (Number.isFinite(t)) asOfMs = Math.max(asOfMs, t); // ignore malformed timestamps so asOf can't become NaN
+    }
   if (asOfMs === 0) asOfMs = Date.now();
 
   const currentStart = asOfMs - opts.windowSec * 1000;
@@ -277,7 +304,8 @@ export function buildDigest(raw: RawGroupStat[], opts: DigestOpts): Digest {
     const svcCtx = g.representative?.serviceContext ?? g.affectedServices?.[0];
     const service = logicalService(svcCtx);
     if (opts.serviceFilter && service !== opts.serviceFilter) continue;
-    const firstSeenMs = g.firstSeenTime ? Date.parse(g.firstSeenTime) : 0;
+    const fsm = g.firstSeenTime ? Date.parse(g.firstSeenTime) : NaN;
+    const firstSeenMs = Number.isFinite(fsm) ? fsm : 0; // bad/absent first-seen → treat as old, not NEW
     rows.push({
       groupId: g.group?.groupId ?? '',
       service,
@@ -351,7 +379,7 @@ export function stackSignature(message: string): string {
     .replace(/\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b/g, 'UUID')
     .replace(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g, 'IP')
     .replace(/\bgoroutine\s+\d+\b/gi, 'goroutine N')
-    .replace(/\b\d{4,}\b/g, 'N') // long numeric ids (line numbers are typically < 1000, so kept)
+    .replace(/\b\d{4,}\b/g, 'N') // runs of 4+ digits = volatile ids (numbers <1000 incl. most line numbers kept; a frame's file:line is preserved by its file prefix)
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -520,7 +548,7 @@ async function main(): Promise<void> {
       process.stderr.write('error: --group requires --project\n');
       process.exit(2);
     }
-    const events = await fetchEvents(values.project, values.group, period, accessToken(), Number(values.events));
+    const events = await fetchEvents(values.project, values.group, period, accessToken(), numArg('events', values.events!, { int: true, min: 1 }));
     const stacks = dedupeStacks(events);
     process.stdout.write(
       JSON.stringify({ group: values.group, sampled: events.length, distinctStacks: stacks.length, stacks }, null, 2) + '\n',
@@ -534,8 +562,16 @@ async function main(): Promise<void> {
   let source: string;
   let tok = '';
   if (values.input) {
-    const parsed = JSON.parse(readFileSync(values.input, 'utf8'));
-    raw = Array.isArray(parsed) ? (parsed as RawGroupStat[]) : ((parsed.errorGroupStats ?? []) as RawGroupStat[]);
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(readFileSync(values.input, 'utf8'));
+    } catch (e) {
+      throw new Error(`--input ${values.input}: ${(e as Error).message}`);
+    }
+    if (Array.isArray(parsed)) raw = parsed as RawGroupStat[];
+    else if (parsed && Array.isArray((parsed as { errorGroupStats?: unknown }).errorGroupStats))
+      raw = (parsed as { errorGroupStats: RawGroupStat[] }).errorGroupStats;
+    else throw new Error(`--input ${values.input}: expected a JSON array of group stats or an object with an "errorGroupStats" array`);
     source = 'file';
   } else {
     if (!values.project) {
@@ -560,22 +596,28 @@ async function main(): Promise<void> {
     periodUsed: period,
     resolutionFilter,
     serviceFilter: values.service ?? null,
-    spikeRatio: Number(values['spike-ratio']),
-    minCount: Number(values['min-count']),
+    spikeRatio: numArg('spike-ratio', values['spike-ratio']!, { min: 0 }),
+    minCount: numArg('min-count', values['min-count']!, { int: true, min: 0 }),
     truncated,
-    leadCap: Number(values['lead-cap']),
+    leadCap: numArg('lead-cap', values['lead-cap']!, { int: true, min: 0 }),
   });
   (digest.meta as Record<string, unknown>).source = source;
 
   // Enrich leads with their top distinct stacks (live mode only — needs the events API).
-  const leadStacks = Number(values['lead-stacks']);
+  const leadStacks = numArg('lead-stacks', values['lead-stacks']!, { int: true, min: 0 });
   if (source === 'gcloud' && leadStacks > 0 && digest.leads.length) {
-    const leadSample = Number(values['lead-sample']);
+    const leadSample = numArg('lead-sample', values['lead-sample']!, { int: true, min: 1 });
+    // Best-effort enrichment: a failed per-lead fetch must NOT discard the whole digest.
     digest.leads = await Promise.all(
-      digest.leads.map(async (lead) => {
-        const events = await fetchEvents(values.project!, lead.groupId, period, tok, leadSample);
-        const cs = compactStacks(events, leadStacks);
-        return { ...lead, stacks: { sampled: cs.sampled, distinct: cs.distinct, top: cs.top } };
+      digest.leads.map(async (lead): Promise<GroupRow> => {
+        try {
+          const events = await fetchEvents(values.project!, lead.groupId, period, tok, leadSample);
+          const cs = compactStacks(events, leadStacks);
+          return { ...lead, stacks: { sampled: cs.sampled, distinct: cs.distinct, top: cs.top } };
+        } catch (err: unknown) {
+          process.stderr.write(`warning: could not enrich lead ${lead.groupId}: ${(err as Error)?.message ?? String(err)}\n`);
+          return { ...lead, stacks: { sampled: 0, distinct: 0, top: [], error: 'enrichment failed' } };
+        }
       }),
     );
   }

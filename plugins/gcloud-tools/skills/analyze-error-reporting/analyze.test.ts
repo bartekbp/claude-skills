@@ -7,6 +7,7 @@ import {
   parseWindow,
   pickPeriod,
   pickBucket,
+  numArg,
   stripPodSuffix,
   logicalService,
   extractFrame,
@@ -231,6 +232,75 @@ test('dedupeStacks collapses near-identical stacks and ranks by frequency', () =
   assert.ok(stacks[0].message.includes('BusinessError')); // full representative stack kept
   assert.equal(stacks[1].count, 1);
   assert.ok(stacks[1].message.includes('TimeoutError'));
+});
+
+// ---------- review hardening: validation, boundaries, fallbacks ----------
+
+test('numArg rejects bad flags instead of silently yielding NaN', () => {
+  assert.equal(numArg('spike-ratio', '2'), 2);
+  assert.equal(numArg('spike-ratio', '2.5'), 2.5);
+  assert.equal(numArg('events', '50', { int: true, min: 1 }), 50);
+  assert.throws(() => numArg('spike-ratio', '2x')); // NaN
+  assert.throws(() => numArg('min-count', '-1', { min: 0 })); // below min
+  assert.throws(() => numArg('events', '2.5', { int: true })); // non-integer
+  assert.throws(() => numArg('events', '0', { int: true, min: 1 })); // below min
+});
+
+test('classify boundary conditions and status precedence', () => {
+  const opts = { spikeRatio: 2, minCount: 10 };
+  const old = Date.parse('2025-01-01T00:00:00Z');
+  assert.equal(classify({ current: 100, prior: 200 }, old, CUR_START, opts), 'IMPROVED'); // current == 0.5*prior
+  assert.equal(classify({ current: 200, prior: 100 }, old, CUR_START, opts), 'SPIKING'); // current == spikeRatio*prior
+  assert.equal(classify({ current: 8, prior: 1 }, old, CUR_START, opts), 'RECURRING'); // spike below minCount floor
+  assert.equal(classify({ current: 2, prior: 8 }, old, CUR_START, opts), 'RECURRING'); // improvement, prior below floor
+  assert.equal(classify({ current: 500, prior: 100 }, Date.parse('2026-05-26T00:00:00Z'), CUR_START, opts), 'NEW'); // NEW beats SPIKE
+  assert.equal(classify({ current: 500, prior: 0 }, old, CUR_START, opts), 'REAPPEARED'); // REAPPEARED beats SPIKE
+  assert.equal(classify({ current: 0, prior: 0 }, old, CUR_START, opts), 'RECURRING'); // both zero, not REAPPEARED
+});
+
+test('sumWindows skips malformed bucket timestamps instead of mis-binning', () => {
+  const b = [
+    { count: '5', endTime: 'not-a-date' },
+    { count: '50', endTime: '2026-05-28T00:00:00Z' },
+  ];
+  assert.deepEqual(sumWindows(b, ASOF, WIN), { current: 50, prior: 0 });
+});
+
+test('buildDigest falls back to ~now when no bucket carries a usable timestamp', () => {
+  const noBuckets: RawGroupStat[] = [{ group: { groupId: 'g', resolutionStatus: 'OPEN' }, timedCounts: [], firstSeenTime: '2025-01-01T00:00:00Z' }];
+  const d = buildDigest(noBuckets, BASE_OPTS);
+  assert.ok(Date.parse(d.meta.window.to) > Date.parse('2026-01-01T00:00:00Z'), 'window.to is recent, not 1970');
+});
+
+test('stackSignature keeps genuinely different errors distinct', () => {
+  assert.notEqual(
+    stackSignature('NullPointerException\n\tat X.run(X.java:88)'),
+    stackSignature('IllegalStateException\n\tat X.run(X.java:88)'),
+  ); // different exception types
+  assert.notEqual(stackSignature('at X.run(X.java:88)'), stackSignature('at X.run(X.java:99)')); // line numbers <1000 preserved
+});
+
+test('extractFrame handles empty, frame-less, and all-vendored messages', () => {
+  assert.deepEqual(extractFrame(''), { kind: '', where: '' });
+  assert.equal(extractFrame('SomeError: just a message, no stack').where, ''); // no parseable frame
+  const vendored = 'TypeError: x\n    at f (/app/node_modules/foo/bar.js:1:2)\n    at g (/app/node_modules/baz/qux.js:3:4)';
+  assert.equal(extractFrame(vendored).where, '/app/node_modules/foo/bar.js:1:2'); // all vendored → first frame, not ''
+});
+
+test('dedupeStacks keeps the longest message as the representative', () => {
+  // Same signature (the id is masked), but the second message is longer — it should win.
+  const evs: RawEvent[] = [
+    { eventTime: '2026-05-30T10:00:00Z', serviceContext: { service: 'svc' }, message: 'BusinessError: x id=1000' },
+    { eventTime: '2026-05-30T10:01:00Z', serviceContext: { service: 'svc' }, message: 'BusinessError: x id=200000999' },
+  ];
+  const out = dedupeStacks(evs);
+  assert.equal(out.length, 1);
+  assert.equal(out[0].count, 2);
+  assert.ok(out[0].message.includes('200000999'));
+});
+
+test('compactStacks handles an empty sample without dividing by zero', () => {
+  assert.deepEqual(compactStacks([], 2), { sampled: 0, distinct: 0, top: [] });
 });
 
 test('compactStacks returns the top-N distinct stacks with share% and a compact frame', () => {
