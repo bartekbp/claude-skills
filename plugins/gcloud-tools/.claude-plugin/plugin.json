@@ -1,0 +1,9 @@
+{
+  "name": "gcloud-tools",
+  "version": "0.1.0",
+  "description": "Skills that wrap the gcloud CLI to analyze Google Cloud operational and security signals — analyze-cloud-armor finds Cloud Armor WAF false positives and false negatives from load balancer logs.",
+  "author": {
+    "name": "Bartosz Polnik",
+    "email": "bartoszpolnik@gmail.com"
+  }
+}

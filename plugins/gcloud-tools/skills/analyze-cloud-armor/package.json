@@ -1,0 +1,14 @@
+{
+  "name": "analyze-cloud-armor",
+  "private": true,
+  "type": "module",
+  "description": "Aggregate Google Cloud Armor / load balancer logs and flag WAF false positives and false negatives.",
+  "scripts": {
+    "test": "tsx analyze.test.ts",
+    "analyze": "tsx analyze.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "tsx": "^4"
+  }
+}
