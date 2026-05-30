@@ -1,0 +1,5 @@
+{
+  "allowedDomains": ["example.com", "api.example.com"],
+  "allowedPathPrefixes": ["/api/v1", "/app"],
+  "expectedCountries": ["PL", "GB", "ES"]
+}

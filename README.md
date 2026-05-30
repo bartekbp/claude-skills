@@ -8,6 +8,7 @@
 /plugin marketplace add bartekbp/claude-skills
 /plugin install brainstorming-tools@bartekbp
 /plugin install pr-tools@bartekbp
+/plugin install gcloud-tools@bartekbp
 ```
 
 (`bartekbp/claude-skills` resolves to this repo; Claude Code clones it over your authenticated GitHub access. `bartekbp` after the `@` is the marketplace name, not the install target.)
@@ -51,6 +52,14 @@ You can also toggle auto-update per marketplace from the `/plugin` UI (Marketpla
 | Skill | Triggers on |
 |-------|-------------|
 | `simplify-pr` | A PR mixes a substantive change with mechanical review noise — a mass formatter/linter pass or import-path-only edits from moving files. Marks the noise-only files as "Viewed" via the GitHub GraphQL API so they collapse by default, leaving only the real-change files expanded. |
+
+### gcloud-tools
+
+Requires the **`gcloud` CLI** (authenticated) and **Node.js** (for `npx tsx`) — these skills shell out to both.
+
+| Skill | Triggers on |
+|-------|-------------|
+| `analyze-cloud-armor` | Reviewing Google Cloud Armor / HTTPS Load Balancer logs to find WAF **false positives** (legitimate traffic blocked) and **false negatives** (malicious or unexpected traffic allowed). A bundled zero-dependency script (`npx tsx analyze.ts`) shells `gcloud`, aggregates the logs, and emits compact JSON with flagged candidates; the skill turns that into a ranked, actionable report. On first run it interviews you for your valid domains/path prefixes and caches the config under `~/.config/gcloud-tools/`; later runs reuse it. |
 
 ## Layout
 
