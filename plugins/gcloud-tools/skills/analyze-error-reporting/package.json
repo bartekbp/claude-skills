@@ -1,0 +1,14 @@
+{
+  "name": "analyze-error-reporting",
+  "private": true,
+  "type": "module",
+  "description": "Weekly Cloud Error Reporting digest — leads with NEW and spiking error groups, with per-group drill-down.",
+  "scripts": {
+    "test": "tsx analyze.test.ts",
+    "analyze": "tsx analyze.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "tsx": "^4"
+  }
+}

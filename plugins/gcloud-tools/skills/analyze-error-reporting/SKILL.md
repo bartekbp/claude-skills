@@ -1,0 +1,99 @@
+---
+name: analyze-error-reporting
+description: Use when you want a weekly-readable Cloud Error Reporting digest that leads with what is NEW or spiking — per error group count, trend vs the prior window, affected service, first/last seen, and a representative frame, rolled up by service. Also serves a post-deploy regression check (short window + one service). GCP-specific; requires the gcloud CLI.
+---
+
+# Analyze Error Reporting
+
+## Overview
+
+This skill produces a **weekly digest of Cloud Error Reporting** that leads with **what changed** — the error groups that are **NEW** or **spiking** — instead of the flat, count-sorted list a dashboard shows. Each group carries its **current-window count**, **trend vs the prior window**, **affected service**, **first/last seen**, and a **compact representative frame** (error kind + top application code location). Findings roll up **by service** and **by status** (new vs recurring).
+
+It reads only the **pre-aggregated error groups** via the Error Reporting REST API — never raw error logs. Groups are few and high-signal, so one pull is complete and cheap. A bundled zero-dependency script fetches the groups, slices their per-bucket counts into a current-vs-prior window, classifies and rolls them up, and emits compact JSON; you (the model) turn it into a ranked report and judge severity.
+
+Full stacks are **not** in the digest (they are large and may carry sensitive data). Fetch them on demand for one group with `--group`.
+
+## When to Use
+
+- A weekly "what's new or getting worse in errors" review (the primary use).
+- A **post-deploy regression check**: `--window <since-deploy> --service <name>` compares the post-deploy window against the equal window before it, for one service.
+- Feeding a weekly summary that combines error trends with other signals.
+
+**Don't use when:** the project isn't on GCP / has no Error Reporting data, or you need individual-event forensics at scale (use the Logs Explorer / drill-down, not a digest).
+
+## Prerequisites
+
+This skill shells out to external tools — check before running:
+
+- **Node.js** v18+ (for `npx tsx`, and for the global `fetch` it relies on): `node --version`. `npx` ships with npm.
+- **`gcloud` CLI**, authenticated with Error Reporting read access: `gcloud auth login` (the script calls `gcloud auth print-access-token`). The **Error Reporting API** must be enabled on the project. If `gcloud` is missing the script stops with an install link.
+
+No other install: `analyze.ts` has zero runtime dependencies and `npx` fetches `tsx` on demand.
+
+## No config file
+
+Unlike the sibling `analyze-cloud-armor`, this skill has **no per-project config**. Muting belongs in Error Reporting itself: the script reads each group's `resolutionStatus` and by default reports only `OPEN` and `ACKNOWLEDGED`, dropping `RESOLVED` and `MUTED`. To silence known noise, resolve or mute the group in the Error Reporting UI. Pass `--include-resolved` to see everything.
+
+## How to Run
+
+Run from the skill's own directory (where `analyze.ts` lives), or use an absolute path.
+
+```bash
+# Weekly digest (default window 7d)
+npx tsx analyze.ts --project my-project
+
+# Custom window / thresholds
+npx tsx analyze.ts --project my-project --window 14d --spike-ratio 3 --min-count 50
+
+# Post-deploy regression check: last 6h vs the prior 6h, one service
+npx tsx analyze.ts --project my-project --window 6h --service checkout-service
+
+# Drill down into one group: full stacks from a few recent events
+npx tsx analyze.ts --project my-project --group <groupId>
+
+# Offline: analyze a saved export (also how the fixtures run)
+npx tsx analyze.ts --input fixtures/sample-error-groups.json
+```
+
+Window is `Nh` / `Nd` / `Nw`, up to ~15 days (the API's 30-day period must cover twice the window). The script auto-selects the API period and bucket granularity (daily for day-scale windows, hourly for hour-scale).
+
+## Output Shape (digest)
+
+```jsonc
+{
+  "meta": { "window": { "from", "to", "label" }, "priorWindow": { "from", "to" },
+            "bucketGranularity": "1d", "resolutionFilter": ["OPEN","ACKNOWLEDGED"],
+            "serviceFilter": null, "source": "gcloud",
+            "coverage": { "groupsFetched": N, "groupsReported": M, "complete": true, "periodUsed": "PERIOD_30_DAYS" } },
+  "summary": { "groups", "new", "spiking", "improved", "reappeared", "totalCurrent", "totalPrior" },
+  "byService": [{ "service", "groups", "new", "current", "prior", "trendPct" }],
+  "leads":  [{ "groupId", "status", "service", "current", "prior", "trendPct",
+               "firstSeen", "lastSeen", "affectedServices", "frame": { "kind", "where" } }],
+  "groups": [ /* every reported group, same row shape, sorted by current desc */ ]
+}
+```
+
+`leads` is the headline: **NEW + SPIKING** groups, biggest first. `frame.where` is the top application code frame (vendored `node_modules`/library frames are skipped); `frame.kind` is the error kind. `trendPct` is `null` for NEW/REAPPEARED (no prior). Counts are bucket-granular (`meta.bucketGranularity`).
+
+Status meanings: **NEW** (first seen within the window), **REAPPEARED** (old group, zero in the prior window), **SPIKING** (current ≥ `spike-ratio`× prior and ≥ `min-count`), **IMPROVED** (current ≤ half of prior), **RECURRING** (steady).
+
+## Producing the Report
+
+1. Run the script. If `meta.coverage.complete` is `false`, pagination hit the cap — say there may be more groups.
+2. **Lead with `leads`** — the NEW and SPIKING groups. For each: status, logical service, current count, trend, first/last seen, and the `frame` (kind + where). This is the actionable headline; render it as a short table.
+3. **Then `byService`** — which services carry the most error volume and the most new groups. Render sorted by `current`.
+4. **Summarize `summary`** — totals and how many groups are new/spiking/improved. Note `totalCurrent` vs `totalPrior` for the overall direction.
+5. **Do not dump every group.** `groups` is there for completeness; surface only what changed.
+6. **To judge severity or compare against code, drill down:** rerun with `--group <groupId>` to pull a few full stacks, then reason about the cause (and, if asked, compare to the source).
+7. Be honest about the window and granularity, and that `trendPct` is undefined for brand-new groups.
+
+## Common Mistakes
+
+- **Treating the digest as exhaustive event data.** It is group-level and bucket-granular; for individual events use `--group` or the Logs Explorer.
+- **Reading `frame.kind` as the full error.** It is a trimmed one-liner for triage; the real stack is behind `--group`.
+- **Muting in config.** There is none — mute/resolve in Error Reporting; the digest honors `resolutionStatus`.
+- **Windows over ~15 days.** Not supported (the 30-day period must cover 2× the window); use a shorter window.
+
+## Testing
+
+`npx tsx analyze.test.ts` runs the analysis against generic fixtures. Run it after editing `analyze.ts`.
