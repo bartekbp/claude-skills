@@ -114,11 +114,18 @@ Status meanings: **NEW** (first seen within the window), **REAPPEARED** (old gro
 
 ### Readable layout (use this, not tables)
 
-Render each lead/group as a block. The compact `stacks.top` (kind + `where`) comes straight from the digest; the **full stack traces** come from `--group <groupId>` (its `stacks[].message`). Shorten noisy vendored frames — collapse `/app/node_modules/.pnpm/<pkg>/node_modules/` and `/app/node_modules/` to `…/` — and keep ~3–6 frames per stack. Mark each block 🟩 when `distinct` is 1 (one real cause) or 🟥 when it is a mixed bucket.
+Render each lead/group as a block. The compact `stacks.top` (kind + `where`) comes straight from the digest; the **full stack traces** come from `--group <groupId>` (its `stacks[].message`). Shorten noisy vendored frames — collapse `/app/node_modules/.pnpm/<pkg>/node_modules/` and `/app/node_modules/` to `…/` — and keep ~3–6 frames per stack.
+
+Mark each block by **whether it needs your attention**:
+
+- 🟥 **needs ack** — a genuine code defect or anomaly to act on: technical error kinds (`TypeError`/null deref, `QueryFailedError` / constraint / type errors, `SystemError`, panics, unhandled rejections), a `NEW` group, or an unexpected spike of something that is not a routine rejection.
+- 🟩 **looks OK** — expected/benign and no action needed: business & validation rejections (`… not found`, `jwt expired`, `401 Unauthorized`, "must be at least…"), or noise that is flat or improving.
+
+Judge the colour on **actionability, not shape** — a single-cause group can be perfectly benign (🟩), and a mixed bucket can still hide a 🟥 defect. Still report `distinct`: when it is high and the top `sharePct` is low, the labelled `frame` is misleading, so list the top distinct kinds rather than trusting `frame`.
 
 ```
-🟥 <groupId> · <service> · <current> errors (<trend>%)
-   distinct stacks in sample of <sampled>: <distinct>   ← high = coarse bucket
+🟥 <groupId> · <service> · <current> errors (<trend>%)   ← needs ack: real defect / anomaly
+   distinct stacks in sample of <sampled>: <distinct>
    [1] <share>% (×<count>)  <error kind>
           at <app frame>   (file:line)
           at <next frame>  …/<pkg>/<file>:<line>
@@ -126,14 +133,14 @@ Render each lead/group as a block. The compact `stacks.top` (kind + `where`) com
    [2] <share>% (×<count>)  <error kind>
           at <app frame> …
 
-🟩 <groupId> · <service> · <current> errors (<trend>%)
-   distinct stacks in sample of <sampled>: 1   ← single real cause
-   [1] 100% (×<count>)  <error kind>
+🟩 <groupId> · <service> · <current> errors (<trend>%)   ← looks OK: expected/benign
+   distinct stacks in sample of <sampled>: <distinct>
+   [1] <share>% (×<count>)  <error kind>
           at <app frame>   (file:line)
           … (+N more frames)
 ```
 
-Lead with the 🟩 single-cause groups (those are the real, actionable defects); for 🟥 mixed buckets, say the labelled `frame` is misleading and list the top distinct kinds instead.
+Lead with the 🟥 groups (the ones needing acknowledgement); summarise the 🟩 expected/benign ones briefly so the reader can scan past them.
 
 ## Common Mistakes
 
