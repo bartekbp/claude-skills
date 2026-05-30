@@ -9,9 +9,14 @@
   },
   "plugins": [
     {
-      "name": "plan-tools",
-      "source": "./plugins/plan-tools",
+      "name": "brainstorming-tools",
+      "source": "./plugins/brainstorming-tools",
       "description": "Skills for working with superpowers implementation plans — optimizing-writing-plans runs an independent second-pass review-and-fix on a freshly written plan."
+    },
+    {
+      "name": "pr-tools",
+      "source": "./plugins/pr-tools",
+      "description": "Skills for cleaning up pull requests — simplify-pr marks formatter/lint and import-path-only files as Viewed so reviewers see only the substantive diffs."
     }
   ]
 }
