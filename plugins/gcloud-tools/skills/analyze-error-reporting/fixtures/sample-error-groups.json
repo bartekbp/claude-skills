@@ -1,0 +1,75 @@
+[
+  {
+    "group": { "groupId": "grpCheckoutNPE", "resolutionStatus": "OPEN" },
+    "timedCounts": [
+      { "count": "100", "startTime": "2026-05-19T00:00:00Z", "endTime": "2026-05-20T00:00:00Z" },
+      { "count": "500", "startTime": "2026-05-29T00:00:00Z", "endTime": "2026-05-30T00:00:00Z" }
+    ],
+    "firstSeenTime": "2025-11-02T10:00:00Z",
+    "lastSeenTime": "2026-05-30T00:00:00Z",
+    "numAffectedServices": 3,
+    "affectedServices": [
+      { "service": "gke_instances", "version": "checkout-service-67566c4cf7-vzdtj", "resourceType": "k8s_container" },
+      { "service": "gke_instances", "version": "checkout-service-67566c4cf7-aa1bc", "resourceType": "k8s_container" }
+    ],
+    "representative": {
+      "eventTime": "2026-05-29T12:00:00Z",
+      "serviceContext": { "service": "gke_instances", "version": "checkout-service-67566c4cf7-vzdtj", "resourceType": "k8s_container" },
+      "message": "NullPointerException: cannot invoke \"Order.total()\"\n\tat com.example.OrderService.placeOrder(OrderService.java:142)\n\tat com.example.web.Handler.handle(Handler.java:33)"
+    }
+  },
+  {
+    "group": { "groupId": "grpSearchPanic", "resolutionStatus": "OPEN" },
+    "timedCounts": [{ "count": "80", "startTime": "2026-05-28T00:00:00Z", "endTime": "2026-05-29T00:00:00Z" }],
+    "firstSeenTime": "2026-05-26T08:30:00Z",
+    "lastSeenTime": "2026-05-29T00:00:00Z",
+    "numAffectedServices": 1,
+    "affectedServices": [{ "service": "gke_instances", "version": "search-api-7d9f8c6b5b-q2x9z", "resourceType": "k8s_container" }],
+    "representative": {
+      "eventTime": "2026-05-28T09:00:00Z",
+      "serviceContext": { "service": "gke_instances", "version": "search-api-7d9f8c6b5b-q2x9z", "resourceType": "k8s_container" },
+      "message": "panic: runtime error: index out of range [3] with length 3\n\tsearch/query.go:88 +0x1a5\n\tsearch/handler.go:21 +0x44"
+    }
+  },
+  {
+    "group": { "groupId": "grpFrontendVal", "resolutionStatus": "ACKNOWLEDGED" },
+    "timedCounts": [
+      { "count": "200", "startTime": "2026-05-18T00:00:00Z", "endTime": "2026-05-19T00:00:00Z" },
+      { "count": "20", "startTime": "2026-05-26T00:00:00Z", "endTime": "2026-05-27T00:00:00Z" }
+    ],
+    "firstSeenTime": "2025-08-01T00:00:00Z",
+    "lastSeenTime": "2026-05-27T00:00:00Z",
+    "numAffectedServices": 1,
+    "affectedServices": [{ "service": "web-frontend", "version": "00031-abc", "resourceType": "cloud_run_revision" }],
+    "representative": {
+      "eventTime": "2026-05-26T10:00:00Z",
+      "serviceContext": { "service": "web-frontend", "version": "00031-abc", "resourceType": "cloud_run_revision" },
+      "message": "Traceback (most recent call last):\n  File \"app/handlers.py\", line 88, in process\n    validate(payload)\nValueError: invalid checkout payload"
+    }
+  },
+  {
+    "group": { "groupId": "grpPayTimeout", "resolutionStatus": "OPEN" },
+    "timedCounts": [
+      { "count": "150", "startTime": "2026-05-17T00:00:00Z", "endTime": "2026-05-18T00:00:00Z" },
+      { "count": "160", "startTime": "2026-05-25T00:00:00Z", "endTime": "2026-05-26T00:00:00Z" }
+    ],
+    "firstSeenTime": "2025-03-01T00:00:00Z",
+    "lastSeenTime": "2026-05-26T00:00:00Z",
+    "numAffectedServices": 2,
+    "affectedServices": [{ "service": "gke_instances", "version": "payments-worker-0", "resourceType": "k8s_container" }],
+    "representative": {
+      "eventTime": "2026-05-25T11:00:00Z",
+      "serviceContext": { "service": "gke_instances", "version": "payments-worker-0", "resourceType": "k8s_container" },
+      "message": "context deadline exceeded\n\tpayments/ledger.go:212 +0x88"
+    }
+  },
+  {
+    "group": { "groupId": "grpLegacyResolved", "resolutionStatus": "RESOLVED" },
+    "timedCounts": [{ "count": "999", "startTime": "2026-05-28T00:00:00Z", "endTime": "2026-05-29T00:00:00Z" }],
+    "firstSeenTime": "2024-01-01T00:00:00Z",
+    "lastSeenTime": "2026-05-29T00:00:00Z",
+    "numAffectedServices": 1,
+    "affectedServices": [{ "service": "gke_instances", "version": "legacy-service-abc12-defgh", "resourceType": "k8s_container" }],
+    "representative": { "message": "RuntimeException: deprecated path\n\tat com.example.Legacy.run(Legacy.java:9)" }
+  }
+]
