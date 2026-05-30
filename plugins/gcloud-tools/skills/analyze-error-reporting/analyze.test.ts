@@ -16,6 +16,7 @@ import {
   buildDigest,
   stackSignature,
   dedupeStacks,
+  compactStacks,
   type RawGroupStat,
   type RawEvent,
   type DigestOpts,
@@ -230,4 +231,20 @@ test('dedupeStacks collapses near-identical stacks and ranks by frequency', () =
   assert.ok(stacks[0].message.includes('BusinessError')); // full representative stack kept
   assert.equal(stacks[1].count, 1);
   assert.ok(stacks[1].message.includes('TimeoutError'));
+});
+
+test('compactStacks returns the top-N distinct stacks with share% and a compact frame', () => {
+  const evs: RawEvent[] = JSON.parse(readFileSync(join(here, 'fixtures/sample-dedup-events.json'), 'utf8'));
+  const r = compactStacks(evs, 2);
+  assert.equal(r.sampled, 4);
+  assert.equal(r.distinct, 2);
+  assert.equal(r.top.length, 2);
+  assert.equal(r.top[0].count, 3);
+  assert.equal(r.top[0].sharePct, 75); // 3 of 4
+  assert.match(r.top[0].kind, /User not found/);
+  assert.equal(r.top[0].where, 'UserService.java:88'); // top app frame, not the whole stack
+  assert.equal(r.top[1].count, 1);
+  assert.match(r.top[1].kind, /TimeoutError/);
+  // topN caps the list even when more distinct stacks exist
+  assert.equal(compactStacks(evs, 1).top.length, 1);
 });

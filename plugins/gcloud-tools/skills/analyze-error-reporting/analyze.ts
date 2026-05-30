@@ -392,6 +392,28 @@ export function dedupeStacks(events: RawEvent[]): StackGroup[] {
     .sort((a, b) => b.count - a.count);
 }
 
+export interface CompactStack {
+  count: number;
+  sharePct: number; // share of the sampled events this stack accounts for
+  kind: string; // error kind / first line
+  where: string; // top application code frame
+}
+
+/**
+ * Summarize a group's sampled events into the top-N distinct stacks, each as a compact
+ * frame + frequency. Lets the digest show whether a group is one real error or a mixed
+ * bucket (high `distinct`) without carrying full stacks.
+ */
+export function compactStacks(events: RawEvent[], topN: number): { sampled: number; distinct: number; top: CompactStack[] } {
+  const groups = dedupeStacks(events);
+  const sampled = events.length;
+  const top = groups.slice(0, Math.max(0, topN)).map((g) => {
+    const f = extractFrame(g.message);
+    return { count: g.count, sharePct: sampled ? Math.round((g.count / sampled) * 100) : 0, kind: f.kind, where: f.where };
+  });
+  return { sampled, distinct: groups.length, top };
+}
+
 // ---------- Data source (Error Reporting REST API) ----------
 
 const API = 'https://clouderrorreporting.googleapis.com/v1beta1';
@@ -478,6 +500,8 @@ async function main(): Promise<void> {
       service: { type: 'string' }, // post-deploy framing: narrow to one logical service
       group: { type: 'string' }, // drill-down: deduplicated stacks for one group
       events: { type: 'string', default: String(EVENTS_FETCH_DEFAULT) }, // events to sample before dedup
+      'lead-stacks': { type: 'string', default: '2' }, // distinct stacks to attach per lead (0 = off)
+      'lead-sample': { type: 'string', default: '60' }, // events sampled per lead for that dedup
       'include-resolved': { type: 'boolean', default: false },
       'spike-ratio': { type: 'string', default: '2' },
       'min-count': { type: 'string', default: '10' },
@@ -508,6 +532,7 @@ async function main(): Promise<void> {
   let raw: RawGroupStat[];
   let truncated = false;
   let source: string;
+  let tok = '';
   if (values.input) {
     const parsed = JSON.parse(readFileSync(values.input, 'utf8'));
     raw = Array.isArray(parsed) ? (parsed as RawGroupStat[]) : ((parsed.errorGroupStats ?? []) as RawGroupStat[]);
@@ -517,7 +542,8 @@ async function main(): Promise<void> {
       process.stderr.write('error: --project is required (or use --input <file> for offline analysis).\n');
       process.exit(2);
     }
-    const r = await fetchGroupStats(values.project, period, bucketSec, accessToken());
+    tok = accessToken();
+    const r = await fetchGroupStats(values.project, period, bucketSec, tok);
     raw = r.groups;
     truncated = r.truncated;
     source = 'gcloud';
@@ -540,6 +566,20 @@ async function main(): Promise<void> {
     leadCap: Number(values['lead-cap']),
   });
   (digest.meta as Record<string, unknown>).source = source;
+
+  // Enrich leads with their top distinct stacks (live mode only — needs the events API).
+  const leadStacks = Number(values['lead-stacks']);
+  if (source === 'gcloud' && leadStacks > 0 && digest.leads.length) {
+    const leadSample = Number(values['lead-sample']);
+    digest.leads = await Promise.all(
+      digest.leads.map(async (lead) => {
+        const events = await fetchEvents(values.project!, lead.groupId, period, tok, leadSample);
+        const cs = compactStacks(events, leadStacks);
+        return { ...lead, stacks: { sampled: cs.sampled, distinct: cs.distinct, top: cs.top } };
+      }),
+    );
+  }
+
   process.stdout.write(JSON.stringify(digest, null, 2) + '\n');
 }
 

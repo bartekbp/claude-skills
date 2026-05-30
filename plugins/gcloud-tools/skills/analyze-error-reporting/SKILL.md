@@ -45,6 +45,9 @@ npx tsx analyze.ts --project my-project
 # Custom window / thresholds
 npx tsx analyze.ts --project my-project --window 14d --spike-ratio 3 --min-count 50
 
+# Control the per-lead distinct-stack enrichment (default: top 2 from a 60-event sample; 0 disables)
+npx tsx analyze.ts --project my-project --lead-stacks 3 --lead-sample 100
+
 # Post-deploy regression check: last 6h vs the prior 6h, one service
 npx tsx analyze.ts --project my-project --window 6h --service checkout-service
 
@@ -69,12 +72,16 @@ Window is `Nh` / `Nd` / `Nw`, up to ~15 days (the API's 30-day period must cover
   "summary": { "groups", "new", "spiking", "improved", "reappeared", "totalCurrent", "totalPrior" },
   "byService": [{ "service", "groups", "new", "current", "prior", "trendPct" }],
   "leads":  [{ "groupId", "status", "service", "current", "prior", "trendPct",
-               "firstSeen", "lastSeen", "affectedServices", "frame": { "kind", "where" } }],
-  "groups": [ /* every reported group, same row shape, sorted by current desc */ ]
+               "firstSeen", "lastSeen", "affectedServices", "frame": { "kind", "where" },
+               "stacks": { "sampled": 60, "distinct": 10,
+                           "top": [{ "count", "sharePct", "kind", "where" }] } }],
+  "groups": [ /* every reported group, same row shape (no `stacks`), sorted by current desc */ ]
 }
 ```
 
 `leads` is the headline: **NEW + SPIKING** groups, biggest first. `frame.where` is the top application code frame (vendored `node_modules`/library frames are skipped); `frame.kind` is the error kind. `trendPct` is `null` for NEW/REAPPEARED (no prior). Counts are bucket-granular (`meta.bucketGranularity`).
+
+Each lead also carries a **`stacks`** block (live runs only): it samples recent events for that group and deduplicates them, so you see how mixed the Error Reporting "group" really is. `stacks.distinct` is the number of distinct stacks in the sample, and `stacks.top` is the most common one or two (`count`, `sharePct`, `kind`, `where`). A high `distinct` with a low top `sharePct` means the group is a coarse bucket of unrelated errors (e.g. everything caught at one gRPC frame), so the group's own `frame` may not represent what's actually firing. Tune with `--lead-stacks N` (distinct stacks per lead, default 2; `0` disables) and `--lead-sample N` (events sampled per lead, default 60). Offline (`--input`) runs omit `stacks`.
 
 ## Output Shape (drill-down, `--group`)
 
@@ -98,7 +105,7 @@ Status meanings: **NEW** (first seen within the window), **REAPPEARED** (old gro
 ## Producing the Report
 
 1. Run the script. If `meta.coverage.complete` is `false`, pagination hit the cap — say there may be more groups.
-2. **Lead with `leads`** — the NEW and SPIKING groups. For each: status, logical service, current count, trend, first/last seen, and the `frame` (kind + where). This is the actionable headline; render it as a short table.
+2. **Lead with `leads`** — the NEW and SPIKING groups. For each: status, logical service, current count, trend, first/last seen, the `frame` (kind + where), and the `stacks` block. This is the actionable headline; render it as a short table. **Check `stacks.distinct`**: if it is 1 (or the top stack's `sharePct` is high) the group is one real error — trust its `frame`; if `distinct` is high and `sharePct` low, the group is a mixed bucket, so call that out and use `stacks.top` (not `frame`) for what's actually firing.
 3. **Then `byService`** — which services carry the most error volume and the most new groups. Render sorted by `current`.
 4. **Summarize `summary`** — totals and how many groups are new/spiking/improved. Note `totalCurrent` vs `totalPrior` for the overall direction.
 5. **Do not dump every group.** `groups` is there for completeness; surface only what changed.
