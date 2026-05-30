@@ -11,7 +11,7 @@ This skill produces a **weekly digest of Cloud Error Reporting** that leads with
 
 It reads only the **pre-aggregated error groups** via the Error Reporting REST API — never raw error logs. Groups are few and high-signal, so one pull is complete and cheap. A bundled zero-dependency script fetches the groups, slices their per-bucket counts into a current-vs-prior window, classifies and rolls them up, and emits compact JSON; you (the model) turn it into a ranked report and judge severity.
 
-Full stacks are **not** in the digest (they are large and may carry sensitive data). Fetch them on demand for one group with `--group`.
+Full stacks are **not** in the digest (they are large and may carry sensitive data). Fetch them on demand for one group with `--group`, which samples recent events and returns the **deduplicated distinct stacks** (ranked by frequency) so you can reason about the different failure modes without wading through hundreds of near-identical copies.
 
 ## When to Use
 
@@ -48,8 +48,9 @@ npx tsx analyze.ts --project my-project --window 14d --spike-ratio 3 --min-count
 # Post-deploy regression check: last 6h vs the prior 6h, one service
 npx tsx analyze.ts --project my-project --window 6h --service checkout-service
 
-# Drill down into one group: full stacks from a few recent events
+# Drill down into one group: sample recent events, return deduplicated distinct stacks
 npx tsx analyze.ts --project my-project --group <groupId>
+npx tsx analyze.ts --project my-project --group <groupId> --events 500   # sample more before dedup
 
 # Offline: analyze a saved export (also how the fixtures run)
 npx tsx analyze.ts --input fixtures/sample-error-groups.json
@@ -75,6 +76,23 @@ Window is `Nh` / `Nd` / `Nw`, up to ~15 days (the API's 30-day period must cover
 
 `leads` is the headline: **NEW + SPIKING** groups, biggest first. `frame.where` is the top application code frame (vendored `node_modules`/library frames are skipped); `frame.kind` is the error kind. `trendPct` is `null` for NEW/REAPPEARED (no prior). Counts are bucket-granular (`meta.bucketGranularity`).
 
+## Output Shape (drill-down, `--group`)
+
+```jsonc
+{
+  "group": "<groupId>",
+  "sampled": 200,          // recent events pulled (cap with --events)
+  "distinctStacks": 13,    // after dedup
+  "stacks": [
+    { "count": 100, "services": ["checkout-service"],
+      "firstSeen": "…", "lastSeen": "…",
+      "message": "<one full representative stack for this failure mode>" }
+  ]
+}
+```
+
+`stacks` is ranked by `count` (most frequent failure mode first). Stacks that differ only by volatile data — entity/user ids, quoted free-text (names), timestamps, memory addresses, UUIDs, IPs — are collapsed into one; genuinely different errors stay separate. Each `message` is a full stack you can read and ask about (e.g. "compare this to the code").
+
 Status meanings: **NEW** (first seen within the window), **REAPPEARED** (old group, zero in the prior window), **SPIKING** (current ≥ `spike-ratio`× prior and ≥ `min-count`), **IMPROVED** (current ≤ half of prior), **RECURRING** (steady).
 
 ## Producing the Report
@@ -84,7 +102,7 @@ Status meanings: **NEW** (first seen within the window), **REAPPEARED** (old gro
 3. **Then `byService`** — which services carry the most error volume and the most new groups. Render sorted by `current`.
 4. **Summarize `summary`** — totals and how many groups are new/spiking/improved. Note `totalCurrent` vs `totalPrior` for the overall direction.
 5. **Do not dump every group.** `groups` is there for completeness; surface only what changed.
-6. **To judge severity or compare against code, drill down:** rerun with `--group <groupId>` to pull a few full stacks, then reason about the cause (and, if asked, compare to the source).
+6. **To judge severity or compare against code, drill down:** rerun with `--group <groupId>` to get the deduplicated distinct stacks (ranked by frequency), then reason about each failure mode (and, if asked, compare to the source). Bump `--events` to widen the sample.
 7. Be honest about the window and granularity, and that `trendPct` is undefined for brand-new groups.
 
 ## Common Mistakes

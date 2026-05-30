@@ -14,7 +14,8 @@ import {
   classify,
   trendPct,
   buildDigest,
-  formatEvents,
+  stackSignature,
+  dedupeStacks,
   type RawGroupStat,
   type RawEvent,
   type DigestOpts,
@@ -203,13 +204,30 @@ test('include-resolved widens the filter to show RESOLVED groups', () => {
   assert.ok(d.groups.some((g) => g.groupId === 'grpLegacyResolved'));
 });
 
-// ---------- drill-down ----------
+// ---------- drill-down dedup ----------
 
-test('formatEvents derives service and preserves the full message for drill-down', () => {
-  const evs: RawEvent[] = JSON.parse(readFileSync(join(here, 'fixtures/sample-group-events.json'), 'utf8'));
-  const out = formatEvents(evs);
-  assert.equal(out.length, 2);
-  assert.equal(out[0].service, 'checkout-service');
-  assert.ok(out[0].message.includes('OrderService.java:142'));
-  assert.ok(out[0].message.includes('Handler.java:33')); // drill-down keeps the WHOLE stack
+test('stackSignature masks volatile ids/addresses so duplicate stacks collapse', () => {
+  const a = stackSignature('User not found userId=10001\n\tat X.find(X.java:88)');
+  const b = stackSignature('User not found userId=20002\n\tat X.find(X.java:88)');
+  assert.equal(a, b); // differ only by a user id -> same signature
+  assert.ok(stackSignature('panic at 0x1a2b3c4d').includes('0xADDR'));
+  assert.ok(stackSignature('client 10.1.2.3 failed').includes('IP'));
+  // free-text data inside quotes is masked, so "same error, different entity" collapses
+  assert.equal(
+    stackSignature('Item not found for cart "Cart A", itemId 778899'),
+    stackSignature('Item not found for cart "Cart B", itemId 112233'),
+  );
+});
+
+test('dedupeStacks collapses near-identical stacks and ranks by frequency', () => {
+  const evs: RawEvent[] = JSON.parse(readFileSync(join(here, 'fixtures/sample-dedup-events.json'), 'utf8'));
+  const stacks = dedupeStacks(evs);
+  assert.equal(stacks.length, 2); // 3 near-identical "User not found" + 1 distinct timeout
+  assert.equal(stacks[0].count, 3);
+  assert.deepEqual(stacks[0].services, ['checkout-service', 'payments-worker']); // distinct services that hit it
+  assert.equal(stacks[0].firstSeen, '2026-05-30T10:00:00Z');
+  assert.equal(stacks[0].lastSeen, '2026-05-30T10:05:00Z');
+  assert.ok(stacks[0].message.includes('BusinessError')); // full representative stack kept
+  assert.equal(stacks[1].count, 1);
+  assert.ok(stacks[1].message.includes('TimeoutError'));
 });

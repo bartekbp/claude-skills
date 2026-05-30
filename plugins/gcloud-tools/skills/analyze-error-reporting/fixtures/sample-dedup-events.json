@@ -1,0 +1,22 @@
+[
+  {
+    "eventTime": "2026-05-30T10:00:00Z",
+    "serviceContext": { "service": "gke_instances", "version": "checkout-service-67566c4cf7-vzdtj", "resourceType": "k8s_container" },
+    "message": "BusinessError: User not found userId=10001\n\tat com.example.UserService.find(UserService.java:88)\n\tat com.example.OrderService.placeOrder(OrderService.java:142)"
+  },
+  {
+    "eventTime": "2026-05-30T10:05:00Z",
+    "serviceContext": { "service": "gke_instances", "version": "checkout-service-67566c4cf7-aa1bc", "resourceType": "k8s_container" },
+    "message": "BusinessError: User not found userId=20002\n\tat com.example.UserService.find(UserService.java:88)\n\tat com.example.OrderService.placeOrder(OrderService.java:142)"
+  },
+  {
+    "eventTime": "2026-05-30T10:02:00Z",
+    "serviceContext": { "service": "gke_instances", "version": "payments-worker-0", "resourceType": "k8s_container" },
+    "message": "BusinessError: User not found userId=30003\n\tat com.example.UserService.find(UserService.java:88)\n\tat com.example.OrderService.placeOrder(OrderService.java:142)"
+  },
+  {
+    "eventTime": "2026-05-30T09:00:00Z",
+    "serviceContext": { "service": "gke_instances", "version": "checkout-service-67566c4cf7-vzdtj", "resourceType": "k8s_container" },
+    "message": "TimeoutError: deadline exceeded after 5000ms\n\tat com.example.Db.query(Db.java:51)"
+  }
+]

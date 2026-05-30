@@ -335,20 +335,61 @@ export function buildDigest(raw: RawGroupStat[], opts: DigestOpts): Digest {
   };
 }
 
-// ---------- Drill-down ----------
+// ---------- Drill-down (dedup) ----------
 
-export interface ExampleEvent {
-  eventTime: string;
-  service: string;
-  message: string; // full stack — drill-down is the one place raw stacks enter context, on request
+/**
+ * Normalize a stack so events that are "the same error" — differing only by volatile data
+ * (user/entity ids, memory addresses, UUIDs, IPs, goroutine numbers) — collapse to one
+ * signature. Frame file:line is preserved; only data-shaped tokens are masked.
+ */
+export function stackSignature(message: string): string {
+  return (message ?? '')
+    .replace(/"[^"]*"/g, '"X"') // quoted free-text (entity names, ids) — varies per occurrence
+    .replace(/'[^']*'/g, "'X'")
+    .replace(/\d{4}-\d{2}-\d{2}[T ][\d:.,]+Z?/g, 'TS') // ISO-8601 timestamps
+    .replace(/0x[0-9a-fA-F]+/g, '0xADDR')
+    .replace(/\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b/g, 'UUID')
+    .replace(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g, 'IP')
+    .replace(/\bgoroutine\s+\d+\b/gi, 'goroutine N')
+    .replace(/\b\d{4,}\b/g, 'N') // long numeric ids (line numbers are typically < 1000, so kept)
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
-export function formatEvents(events: RawEvent[]): ExampleEvent[] {
-  return events.map((e) => ({
-    eventTime: e.eventTime ?? '',
-    service: logicalService(e.serviceContext),
-    message: e.message ?? '',
-  }));
+export interface StackGroup {
+  count: number; // how many fetched events share this stack
+  services: string[]; // distinct logical services that hit it
+  firstSeen: string;
+  lastSeen: string;
+  message: string; // a full representative stack (the longest seen) — ask the model about this
+}
+
+/** Group fetched events by normalized stack signature, most frequent first. */
+export function dedupeStacks(events: RawEvent[]): StackGroup[] {
+  const map = new Map<string, { count: number; services: Set<string>; times: string[]; message: string }>();
+  for (const e of events) {
+    const sig = stackSignature(e.message ?? '');
+    const svc = logicalService(e.serviceContext);
+    const t = e.eventTime ?? '';
+    const cur = map.get(sig);
+    if (cur) {
+      cur.count++;
+      cur.services.add(svc);
+      if (t) cur.times.push(t);
+      if ((e.message ?? '').length > cur.message.length) cur.message = e.message ?? '';
+    } else {
+      map.set(sig, { count: 1, services: new Set(svc ? [svc] : []), times: t ? [t] : [], message: e.message ?? '' });
+    }
+  }
+  return [...map.values()]
+    .map((v) => ({
+      count: v.count,
+      services: [...v.services].sort(),
+      firstSeen: v.times.length ? v.times.reduce((a, b) => (a < b ? a : b)) : '',
+      lastSeen: v.times.length ? v.times.reduce((a, b) => (a > b ? a : b)) : '',
+      message: v.message,
+    }))
+    .sort((a, b) => b.count - a.count);
 }
 
 // ---------- Data source (Error Reporting REST API) ----------
@@ -356,7 +397,8 @@ export function formatEvents(events: RawEvent[]): ExampleEvent[] {
 const API = 'https://clouderrorreporting.googleapis.com/v1beta1';
 const PAGE_SIZE = 200;
 const MAX_PAGES = 25; // backstop; error groups are few — one page is typical
-const EVENTS_PAGE_SIZE = 5; // a few example stacks per group for drill-down
+const EVENTS_PAGE_SIZE = 100; // events API page size for drill-down
+const EVENTS_FETCH_DEFAULT = 200; // pull a healthy sample, then dedup to the distinct stacks
 
 function accessToken(): string {
   try {
@@ -409,9 +451,21 @@ async function fetchGroupStats(
   return { groups, truncated: !!pageToken };
 }
 
-async function fetchEvents(project: string, groupId: string, period: string, tok: string): Promise<RawEvent[]> {
-  const j = await apiGet(`projects/${project}/events`, { groupId, 'timeRange.period': period, pageSize: String(EVENTS_PAGE_SIZE) }, tok);
-  return (j.errorEvents ?? []) as RawEvent[];
+async function fetchEvents(project: string, groupId: string, period: string, tok: string, max: number): Promise<RawEvent[]> {
+  const events: RawEvent[] = [];
+  let pageToken: string | undefined;
+  do {
+    const params: Record<string, string> = {
+      groupId,
+      'timeRange.period': period,
+      pageSize: String(Math.min(EVENTS_PAGE_SIZE, max - events.length)),
+    };
+    if (pageToken) params.pageToken = pageToken;
+    const j = await apiGet(`projects/${project}/events`, params, tok);
+    events.push(...((j.errorEvents ?? []) as RawEvent[]));
+    pageToken = j.nextPageToken;
+  } while (pageToken && events.length < max);
+  return events;
 }
 
 // ---------- CLI ----------
@@ -422,7 +476,8 @@ async function main(): Promise<void> {
       project: { type: 'string' },
       window: { type: 'string', default: '7d' },
       service: { type: 'string' }, // post-deploy framing: narrow to one logical service
-      group: { type: 'string' }, // drill-down: full stacks for one group
+      group: { type: 'string' }, // drill-down: deduplicated stacks for one group
+      events: { type: 'string', default: String(EVENTS_FETCH_DEFAULT) }, // events to sample before dedup
       'include-resolved': { type: 'boolean', default: false },
       'spike-ratio': { type: 'string', default: '2' },
       'min-count': { type: 'string', default: '10' },
@@ -441,8 +496,11 @@ async function main(): Promise<void> {
       process.stderr.write('error: --group requires --project\n');
       process.exit(2);
     }
-    const events = await fetchEvents(values.project, values.group, period, accessToken());
-    process.stdout.write(JSON.stringify({ group: values.group, examples: formatEvents(events) }, null, 2) + '\n');
+    const events = await fetchEvents(values.project, values.group, period, accessToken(), Number(values.events));
+    const stacks = dedupeStacks(events);
+    process.stdout.write(
+      JSON.stringify({ group: values.group, sampled: events.length, distinctStacks: stacks.length, stacks }, null, 2) + '\n',
+    );
     return;
   }
 
