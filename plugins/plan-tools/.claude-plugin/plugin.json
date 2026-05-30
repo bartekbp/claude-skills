@@ -1,0 +1,9 @@
+{
+  "name": "plan-tools",
+  "version": "0.1.0",
+  "description": "Skills for working with superpowers implementation plans — tighten verbose plans by merging trivial tasks and annotating parallelism.",
+  "author": {
+    "name": "Bartosz Polnik",
+    "email": "bartoszpolnik@gmail.com"
+  }
+}

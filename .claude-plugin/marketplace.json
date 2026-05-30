@@ -1,0 +1,17 @@
+{
+  "name": "bartek-skills",
+  "owner": {
+    "name": "Bartosz Polnik",
+    "email": "bartoszpolnik@gmail.com"
+  },
+  "metadata": {
+    "description": "Bartek's personal Claude Code skills."
+  },
+  "plugins": [
+    {
+      "name": "plan-tools",
+      "source": "./plugins/plan-tools",
+      "description": "Skills for working with superpowers implementation plans — tighten verbose plans by merging trivial tasks and annotating parallelism."
+    }
+  ]
+}
