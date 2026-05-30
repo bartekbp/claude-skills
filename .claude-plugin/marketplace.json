@@ -21,7 +21,7 @@
     {
       "name": "gcloud-tools",
       "source": "./plugins/gcloud-tools",
-      "description": "Skills that wrap the gcloud CLI to analyze Google Cloud operational and security signals — analyze-cloud-armor finds Cloud Armor WAF false positives and false negatives from load balancer logs."
+      "description": "Skills that wrap the gcloud CLI to analyze Google Cloud operational and security signals — analyze-cloud-armor finds Cloud Armor WAF false positives, and analyze-error-reporting produces a weekly Cloud Error Reporting digest of new and spiking error groups."
     }
   ]
 }
