@@ -140,6 +140,26 @@ export interface Coverage {
   to?: string;
 }
 
+/** Shallow liveness summary of enforced denies that are NOT on the allowed surface. */
+export interface OffSurfaceSummary {
+  denies: number; // count of off-surface enforced denies
+  distinctIps: number;
+  complete: boolean; // false if the fetch hit FETCH_LIMIT
+  topPaths: { path: string; denies: number }[]; // top 5, most-blocked first
+  topCountries: { country: string; denies: number }[]; // top 5, most-blocked first
+}
+
+/** Either a successful summary, or a recorded failure (liveness could not be determined). */
+export type OffSurfaceResult = OffSurfaceSummary | { error: string };
+
+/** Minimal projection of one enforced deny, shared by the live and offline paths. */
+export interface DenyRow {
+  host: string;
+  path: string;
+  ip: string;
+  country: string; // raw regionCode, '' if absent (bucketed to '(unknown)' in the summary)
+}
+
 // ---------- Matched-value classification ----------
 
 // SQLi structures that distinguish an actual injection payload from a benign value
@@ -214,8 +234,12 @@ function inAllowedPrefix(path: string, cfg: Config): boolean {
   return cfg.allowedPathPrefixes.some((p) => path === p || path.startsWith(p.endsWith('/') ? p : p + '/'));
 }
 
+function surfaceMatches(host: string, path: string, cfg: Config): boolean {
+  return inAllowedDomain(host, cfg) && inAllowedPrefix(path, cfg);
+}
+
 function onAllowedSurface(n: Norm, cfg: Config): boolean {
-  return inAllowedDomain(n.host, cfg) && inAllowedPrefix(n.path, cfg);
+  return surfaceMatches(n.host, n.path, cfg);
 }
 
 // ---------- Aggregation ----------
@@ -311,6 +335,30 @@ function buildDenialDetail(items: Norm[], cfg: Config): DenialDetail {
   };
 }
 
+const OFF_SURFACE_TOP_N = 5;
+
+export function summarizeOffSurface(denyRows: DenyRow[], cfg: Config, complete: boolean): OffSurfaceSummary {
+  const off = denyRows.filter((r) => !surfaceMatches(r.host, r.path, cfg));
+  const ips = new Set<string>();
+  const byPath = new Map<string, number>();
+  const byCountry = new Map<string, number>();
+  for (const r of off) {
+    if (r.ip) ips.add(r.ip);
+    if (r.path) byPath.set(r.path, (byPath.get(r.path) ?? 0) + 1);
+    const c = r.country || '(unknown)';
+    byCountry.set(c, (byCountry.get(c) ?? 0) + 1);
+  }
+  const topPaths = [...byPath.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, OFF_SURFACE_TOP_N)
+    .map(([path, denies]) => ({ path, denies }));
+  const topCountries = [...byCountry.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, OFF_SURFACE_TOP_N)
+    .map(([country, denies]) => ({ country, denies }));
+  return { denies: off.length, distinctIps: ips.size, complete, topPaths, topCountries };
+}
+
 export function aggregate(norms: Norm[], cfg: Config): Aggregates {
   const allowlistConfigured = cfg.allowedDomains.length > 0 || cfg.allowedPathPrefixes.length > 0;
   const onSurface = (n: Norm) => !allowlistConfigured || onAllowedSurface(n, cfg);
@@ -337,14 +385,9 @@ export function timeRange(norms: Norm[]): Coverage {
 const BASE_FILTER = 'resource.type="http_load_balancer" AND jsonPayload.enforcedSecurityPolicy.name:*';
 const FETCH_LIMIT = 100000; // enforced denies are rare; fetch them (near-)completely
 
-function readLogs(filter: string, project: string, window: string, limit: number): RawEntry[] {
-  let out: string;
+function execGcloud(args: string[]): string {
   try {
-    out = execFileSync(
-      'gcloud',
-      ['logging', 'read', filter, '--project', project, '--freshness', window, '--format', 'json', '--limit', String(limit)],
-      { encoding: 'utf8', maxBuffer: 512 * 1024 * 1024 },
-    );
+    return execFileSync('gcloud', args, { encoding: 'utf8', maxBuffer: 512 * 1024 * 1024 });
   } catch (err: unknown) {
     const e = err as { code?: string; stderr?: Buffer | string; message?: string };
     if (e.code === 'ENOENT') {
@@ -354,9 +397,32 @@ function readLogs(filter: string, project: string, window: string, limit: number
       );
     }
     const stderr = e.stderr ? e.stderr.toString().trim() : '';
-    throw new Error(`gcloud logging read failed: ${stderr || e.message || String(err)}`);
+    throw new Error(`gcloud failed: ${stderr || e.message || String(err)}`);
   }
+}
+
+function readLogs(filter: string, project: string, window: string, limit: number): RawEntry[] {
+  const out = execGcloud([
+    'logging', 'read', filter, '--project', project, '--freshness', window, '--format', 'json', '--limit', String(limit),
+  ]);
   return JSON.parse(out) as RawEntry[];
+}
+
+const OFF_SURFACE_FORMAT =
+  'value(httpRequest.requestUrl, jsonPayload.securityPolicyRequestData.remoteIpInfo.regionCode, httpRequest.remoteIp)';
+
+/**
+ * Fetch ALL enforced denies (no surface clause) with a reduced projection, then summarize
+ * the off-surface remainder. `base` already carries BASE_FILTER + any policy clause, so the
+ * --policy flag narrows this query consistently with the on-surface query.
+ */
+function readOffSurfaceSummary(base: string, project: string, window: string, cfg: Config): OffSurfaceSummary {
+  const out = execGcloud([
+    'logging', 'read', `${base} AND jsonPayload.enforcedSecurityPolicy.outcome="DENY"`,
+    '--project', project, '--freshness', window, '--format', OFF_SURFACE_FORMAT, '--limit', String(FETCH_LIMIT),
+  ]);
+  const rows = parseOffSurfaceValues(out);
+  return summarizeOffSurface(rows, cfg, rows.length < FETCH_LIMIT);
 }
 
 function policyClause(policy: string | undefined): string {
@@ -371,6 +437,22 @@ function policyClause(policy: string | undefined): string {
 function surfaceClause(cfg: Config): string {
   const terms = cfg.allowedPathPrefixes.map((p) => `httpRequest.requestUrl:"${p}"`);
   return terms.length ? ` AND (${terms.join(' OR ')})` : '';
+}
+
+/**
+ * Parse `gcloud logging read --format='value(requestUrl, regionCode, remoteIp)'` output:
+ * one tab-separated line per deny. Missing fields render as empty strings. Blank lines
+ * are skipped. URL parsing reuses splitUrl, which falls back gracefully on bad URLs.
+ */
+export function parseOffSurfaceValues(stdout: string): DenyRow[] {
+  const rows: DenyRow[] = [];
+  for (const line of stdout.split('\n')) {
+    if (!line.trim()) continue;
+    const [url = '', country = '', ip = ''] = line.split('\t');
+    const { host, path } = splitUrl(url);
+    rows.push({ host, path, ip, country });
+  }
+  return rows;
 }
 
 // ---------- CLI ----------
@@ -406,7 +488,15 @@ function main(): void {
 
   if (values.input) {
     norms = (JSON.parse(readFileSync(values.input, 'utf8')) as RawEntry[]).map(normalize);
-    coverage = { source: 'file', span: timeRange(norms), note: 'offline export — coverage is whatever the file contains' };
+    const denyRows: DenyRow[] = norms
+      .filter((n) => n.outcome === 'DENY')
+      .map((n) => ({ host: n.host, path: n.path, ip: n.ip, country: n.country }));
+    coverage = {
+      source: 'file',
+      span: timeRange(norms),
+      note: 'offline export — coverage is whatever the file contains',
+      offSurface: summarizeOffSurface(denyRows, cfg, true),
+    };
   } else {
     if (!values.project) {
       process.stderr.write('error: --project is required (or use --input <file> for offline analysis).\n');
@@ -424,11 +514,23 @@ function main(): void {
       FETCH_LIMIT,
     );
     norms = enforcedRaw.map(normalize);
+
+    // Off-surface liveness: always run. A failure here must never abort the primary report.
+    let offSurface: OffSurfaceResult;
+    try {
+      offSurface = readOffSurfaceSummary(base, values.project, values.window!, cfg);
+    } catch (err: unknown) {
+      const msg = (err as Error)?.message ?? String(err);
+      process.stderr.write(`warning: off-surface liveness query failed: ${msg}\n`);
+      offSurface = { error: msg };
+    }
+
     coverage = {
       source: 'gcloud',
       requestedWindow: values.window,
       scopedToAllowedPrefixes: surface !== '',
       enforcedDenies: { fetched: enforcedRaw.length, complete: enforcedRaw.length < FETCH_LIMIT, span: timeRange(norms) },
+      offSurface,
     };
   }
 

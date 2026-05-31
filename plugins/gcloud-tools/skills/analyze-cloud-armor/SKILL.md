@@ -77,7 +77,10 @@ npx tsx analyze.ts --input fixtures/sample-armor-logs.json --config fixtures/tes
 ```jsonc
 {
   "meta": { "allowlistConfigured": true, "enforcedDeniesOnSurface": N,
-            "coverage": { "enforcedDenies": { "fetched": N, "complete": true, "span": {...} } } },
+            "coverage": { "enforcedDenies": { "fetched": N, "complete": true, "span": {...} },
+                          "offSurface": { "denies": M, "distinctIps": K, "complete": true,
+                                          "topPaths": [{ "path", "denies" }],
+                                          "topCountries": [{ "country", "denies" }] } } },
   "falsePositives": {
     "total": N,
     "classification": { "benign": N, "attackLike": M },   // benign = false positive; attackLike = verify
@@ -92,16 +95,23 @@ npx tsx analyze.ts --input fixtures/sample-armor-logs.json --config fixtures/tes
 
 `attackLikeRequests` lists **only the blocks whose value contains SQLi structure** — the ones a human should eyeball before excluding. Benign denies (the false positives) are *not* listed individually; they're fully summarized by `classification`, `byRule`, and `byCountry`. Full URL (with query), client IP, and country/ASN are included so each can be investigated; the matched value never is.
 
+`coverage.offSurface` is a deliberately shallow **liveness** summary: enforced denies that
+are NOT on your declared surface (almost always scanners hitting paths you don't serve, e.g.
+`/.env`, `/.git/config`). It exists so a zero on-surface result is unambiguous — `denies > 0`
+here proves the WAF is alive and blocking. It is never per-rule or SQLi-analyzed; it is not an
+attack dashboard. On a live run that fails to fetch it, `offSurface` is `{ "error": "..." }`.
+
 ## Producing the Report
 
 1. Run the script. If `meta.coverage.enforcedDenies.complete` is `false`, the fetch hit the cap — say there are more.
-2. **Lead with the `byRule` table** — one row per rule with `priority`, `denies`, `distinctIps`, the `countries` it blocked, and the `endpoints` it fired on. This is the organized headline; render it as a table sorted by `denies`. `byCountry` is a quick overall geo summary beneath it.
-3. **Use geography to judge intent:** blocks concentrated in `expectedCountries` are very likely false positives (real users); `unexpected: true` countries may be genuine attacks — don't recommend whitelisting those.
-4. **Use `matchedField` for the smoking gun:** a SQLi rule matching the `password` field on `/auth/*` is a textbook false positive (credentials legitimately contain rule-tripping characters).
-5. **Confirm it isn't a real attack with `classification`.** `benign` blocks contain no SQLi structure (just special chars — real passwords); `attackLike` blocks contain injection tokens (`sqliTokens`: `sql-comment`, `keyword`, `tautology`, …). A finding that is overwhelmingly `benign` from expected countries is a safe false positive to exclude; surface the few `attackLike` requests (by `signature`, never the raw value) for the user to eyeball before whitelisting. Per-rule `attackLike` tells you which rules are catching real attempts vs only false positives. **Never disable a rule whose blocks are mostly `attackLike`.**
-6. List the **`attackLikeRequests`** (IP + country + full URL + field) so the user can eyeball the few that need verifying. Do **not** enumerate the benign denies — they're the false positives, already summarized by the rollups; listing each one is noise.
-6. Recommend per rule: a scoped **rule exclusion** for the matched paths, or a **field exclusion** so the rule stops inspecting that field (e.g. the password), keeping protection elsewhere.
-7. Be honest about confidence and **never print the matched value** — it can be a real credential.
+2. **Lead with liveness when on-surface denies are 0.** If `enforcedDeniesOnSurface` is 0, do not just report zeros — read `coverage.offSurface`. If `offSurface.denies > 0`, open with "0 false positives on your surface; WAF is live — N denies off-surface from K IPs (scanning <topPaths>)." If `offSurface.denies` is also 0 (or `offSurface` carries an `error`), say so explicitly: a fully silent policy may mean no traffic, logging disabled, or the query failed — flag it rather than implying all-clear.
+3. **Lead with the `byRule` table** — one row per rule with `priority`, `denies`, `distinctIps`, the `countries` it blocked, and the `endpoints` it fired on. This is the organized headline; render it as a table sorted by `denies`. `byCountry` is a quick overall geo summary beneath it.
+4. **Use geography to judge intent:** blocks concentrated in `expectedCountries` are very likely false positives (real users); `unexpected: true` countries may be genuine attacks — don't recommend whitelisting those.
+5. **Use `matchedField` for the smoking gun:** a SQLi rule matching the `password` field on `/auth/*` is a textbook false positive (credentials legitimately contain rule-tripping characters).
+6. **Confirm it isn't a real attack with `classification`.** `benign` blocks contain no SQLi structure (just special chars — real passwords); `attackLike` blocks contain injection tokens (`sqliTokens`: `sql-comment`, `keyword`, `tautology`, …). A finding that is overwhelmingly `benign` from expected countries is a safe false positive to exclude; surface the few `attackLike` requests (by `signature`, never the raw value) for the user to eyeball before whitelisting. Per-rule `attackLike` tells you which rules are catching real attempts vs only false positives. **Never disable a rule whose blocks are mostly `attackLike`.**
+7. List the **`attackLikeRequests`** (IP + country + full URL + field) so the user can eyeball the few that need verifying. Do **not** enumerate the benign denies — they're the false positives, already summarized by the rollups; listing each one is noise.
+8. Recommend per rule: a scoped **rule exclusion** for the matched paths, or a **field exclusion** so the rule stops inspecting that field (e.g. the password), keeping protection elsewhere.
+9. Be honest about confidence and **never print the matched value** — it can be a real credential.
 
 ## Common Mistakes
 
