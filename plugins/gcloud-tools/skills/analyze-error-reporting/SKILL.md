@@ -1,6 +1,6 @@
 ---
 name: analyze-error-reporting
-description: Use when you want a weekly-readable Cloud Error Reporting digest that leads with what is NEW or spiking — per error group count, trend vs the prior window, affected service, first/last seen, and a representative frame, rolled up by service. Also serves a post-deploy regression check (short window + one service). GCP-specific; requires the gcloud CLI.
+description: Use when asked whether there are errors or error logs, what's erroring, what exceptions/failures occurred, or what's broken in a GCP project over a time window — ad-hoc checks like "any errors in dev in the past 10 hours?", a weekly what's-new-or-spiking review, or a post-deploy regression check. Rolls errors up by service and flags NEW vs spiking groups. GCP-specific; requires the gcloud CLI.
 ---
 
 # Analyze Error Reporting
