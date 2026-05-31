@@ -191,3 +191,31 @@ test('off-surface summary over the sample fixture (mirrors main() offline mappin
   assert.deepEqual(s.topPaths[0], { path: '/.env', denies: 2 });
   assert.deepEqual(s.topCountries[0], { country: 'US', denies: 3 });
 });
+
+test('zero on-surface: on-surface analysis is empty while off-surface liveness proves WAF is live', () => {
+  // Real-world case: scanner traffic hits paths outside the allowed surface;
+  // no legitimate traffic was blocked on the surface.
+  const cfg: Config = { allowedDomains: [], allowedPathPrefixes: ['/api/v2'] };
+  const rawEntries: RawEntry[] = [
+    {
+      httpRequest: { requestUrl: 'https://example.org/.env', status: 403, remoteIp: '10.0.0.1' },
+      jsonPayload: { enforcedSecurityPolicy: { outcome: 'DENY', preconfiguredExprIds: ['rule-scanner'] },
+                    securityPolicyRequestData: { remoteIpInfo: { regionCode: 'US' } } },
+    },
+    {
+      httpRequest: { requestUrl: 'https://example.org/.git/config', status: 403, remoteIp: '10.0.0.2' },
+      jsonPayload: { enforcedSecurityPolicy: { outcome: 'DENY', preconfiguredExprIds: ['rule-scanner'] },
+                    securityPolicyRequestData: { remoteIpInfo: { regionCode: 'CN' } } },
+    },
+  ];
+  const norms = rawEntries.map(normalize);
+
+  // aggregate() scopes to on-surface denies — both entries are off-surface, so zero FPs.
+  assert.equal(aggregate(norms, cfg).falsePositives.total, 0);
+
+  // summarizeOffSurface() proves the WAF is live: 2 off-surface denies.
+  const denyRows: DenyRow[] = norms
+    .filter((n) => n.outcome === 'DENY')
+    .map((n) => ({ host: n.host, path: n.path, ip: n.ip, country: n.country }));
+  assert.ok(summarizeOffSurface(denyRows, cfg, true).denies > 0);
+});
