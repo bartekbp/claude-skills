@@ -3,7 +3,17 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { aggregate, classifyValue, normalize, timeRange, type Config, type RawEntry } from './analyze.ts';
+import {
+  aggregate,
+  classifyValue,
+  normalize,
+  timeRange,
+  summarizeOffSurface,
+  parseOffSurfaceValues,
+  type Config,
+  type RawEntry,
+  type DenyRow,
+} from './analyze.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const entries: RawEntry[] = JSON.parse(readFileSync(join(here, 'fixtures/sample-armor-logs.json'), 'utf8'));
@@ -113,4 +123,71 @@ test('timeRange reports the min and max timestamps actually covered', () => {
   const r = timeRange(ns);
   assert.equal(r.from, '2026-05-01T00:00:00Z');
   assert.equal(r.to, '2026-05-02T00:00:00Z');
+});
+
+test('off-surface summary counts only off-surface denies and tallies ips/paths/countries', () => {
+  const cfg: Config = { allowedDomains: [], allowedPathPrefixes: ['/api/v2'] };
+  const rows: DenyRow[] = [
+    { host: 'h', path: '/api/v2/orders', ip: '1.1.1.1', country: 'PL' }, // on-surface → excluded
+    { host: 'h', path: '/.env', ip: '2.2.2.2', country: 'US' },
+    { host: 'h', path: '/.env', ip: '3.3.3.3', country: 'US' },
+    { host: 'h', path: '/.git/config', ip: '2.2.2.2', country: '' }, // missing region
+  ];
+  const s = summarizeOffSurface(rows, cfg, true);
+  assert.equal(s.denies, 3);
+  assert.equal(s.distinctIps, 2); // 2.2.2.2 and 3.3.3.3
+  assert.equal(s.complete, true);
+  assert.deepEqual(s.topPaths[0], { path: '/.env', denies: 2 });
+  assert.deepEqual(s.topCountries[0], { country: 'US', denies: 2 });
+  assert.ok(s.topCountries.some((c) => c.country === '(unknown)' && c.denies === 1));
+});
+
+test('off-surface summary caps top lists at 5 and reports incompleteness', () => {
+  const cfg: Config = { allowedDomains: [], allowedPathPrefixes: ['/api/v2'] };
+  const rows: DenyRow[] = Array.from({ length: 7 }, (_, i) => ({
+    host: 'h', path: `/p${i}`, ip: `9.9.9.${i}`, country: `C${i}`,
+  }));
+  const s = summarizeOffSurface(rows, cfg, false);
+  assert.equal(s.denies, 7);
+  assert.equal(s.topPaths.length, 5);
+  assert.equal(s.topCountries.length, 5);
+  assert.equal(s.complete, false);
+});
+
+test('parseOffSurfaceValues splits tab-separated gcloud value output into rows', () => {
+  const stdout = [
+    'https://x.example.org/.env\tUS\t198.51.100.50',
+    'https://x.example.org/.git/config\t\t198.51.100.51', // missing region renders empty
+    '', // blank trailing line tolerated
+  ].join('\n');
+  const rows = parseOffSurfaceValues(stdout);
+  assert.equal(rows.length, 2);
+  assert.equal(rows[0].host, 'x.example.org');
+  assert.equal(rows[0].path, '/.env');
+  assert.equal(rows[0].country, 'US');
+  assert.equal(rows[0].ip, '198.51.100.50');
+  assert.equal(rows[1].path, '/.git/config');
+  assert.equal(rows[1].country, ''); // preserved empty; bucketed later
+});
+
+test('parseOffSurfaceValues returns no rows for empty output', () => {
+  assert.deepEqual(parseOffSurfaceValues(''), []);
+  assert.deepEqual(parseOffSurfaceValues('\n  \n'), []);
+});
+
+test('on-surface false-positive total is unchanged by off-surface deny fixtures', () => {
+  // The four added scanner denies are off-surface; on-surface denies remain 7.
+  assert.equal(agg.falsePositives.total, 7);
+});
+
+test('off-surface summary over the sample fixture (mirrors main() offline mapping)', () => {
+  const denyRows: DenyRow[] = entries
+    .map(normalize)
+    .filter((n) => n.outcome === 'DENY')
+    .map((n) => ({ host: n.host, path: n.path, ip: n.ip, country: n.country }));
+  const s = summarizeOffSurface(denyRows, config, true);
+  assert.equal(s.denies, 4); // the four scanner denies
+  assert.equal(s.distinctIps, 3); // .50, .51, .52
+  assert.deepEqual(s.topPaths[0], { path: '/.env', denies: 2 });
+  assert.deepEqual(s.topCountries[0], { country: 'US', denies: 3 });
 });

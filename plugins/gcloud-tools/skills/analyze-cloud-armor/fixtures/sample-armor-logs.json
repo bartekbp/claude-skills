@@ -74,5 +74,25 @@
   { "timestamp": "2026-05-20T14:00:05Z", "httpRequest": { "requestMethod": "GET", "requestUrl": "https://example.com/api/v1/search?q=f", "status": 200, "userAgent": "Mozilla/5.0", "remoteIp": "198.51.100.30" }, "jsonPayload": { "enforcedSecurityPolicy": { "name": "edge-policy", "outcome": "ACCEPT", "preconfiguredExprIds": [], "priority": 2147483647 } } },
 
   { "timestamp": "2026-05-20T15:00:00Z", "httpRequest": { "requestMethod": "GET", "requestUrl": "https://example.com/app/home", "status": 200, "userAgent": "Mozilla/5.0", "remoteIp": "203.0.113.50" }, "jsonPayload": { "enforcedSecurityPolicy": { "name": "edge-policy", "outcome": "ACCEPT", "preconfiguredExprIds": [], "priority": 2147483647 } } },
-  { "timestamp": "2026-05-20T15:00:01Z", "httpRequest": { "requestMethod": "GET", "requestUrl": "https://example.com/app/dashboard", "status": 200, "userAgent": "Mozilla/5.0", "remoteIp": "203.0.113.50" }, "jsonPayload": { "enforcedSecurityPolicy": { "name": "edge-policy", "outcome": "ACCEPT", "preconfiguredExprIds": [], "priority": 2147483647 } } }
+  { "timestamp": "2026-05-20T15:00:01Z", "httpRequest": { "requestMethod": "GET", "requestUrl": "https://example.com/app/dashboard", "status": 200, "userAgent": "Mozilla/5.0", "remoteIp": "203.0.113.50" }, "jsonPayload": { "enforcedSecurityPolicy": { "name": "edge-policy", "outcome": "ACCEPT", "preconfiguredExprIds": [], "priority": 2147483647 } } },
+  {
+    "timestamp": "2026-05-20T09:00:00Z",
+    "httpRequest": { "requestMethod": "GET", "requestUrl": "https://api.example.com/.env", "status": 403, "userAgent": "curl/8.0", "remoteIp": "198.51.100.50" },
+    "jsonPayload": { "enforcedSecurityPolicy": { "name": "edge-policy", "outcome": "DENY", "preconfiguredExprIds": ["owasp-crs-v030301-id913101-scanner"], "priority": 4000 }, "securityPolicyRequestData": { "remoteIpInfo": { "asn": 22295, "regionCode": "US" } }, "statusDetails": "denied_by_security_policy" }
+  },
+  {
+    "timestamp": "2026-05-20T09:01:00Z",
+    "httpRequest": { "requestMethod": "GET", "requestUrl": "https://api.example.com/.git/config", "status": 403, "userAgent": "curl/8.0", "remoteIp": "198.51.100.51" },
+    "jsonPayload": { "enforcedSecurityPolicy": { "name": "edge-policy", "outcome": "DENY", "preconfiguredExprIds": ["owasp-crs-v030301-id913101-scanner"], "priority": 4000 }, "securityPolicyRequestData": { "remoteIpInfo": { "asn": 22295, "regionCode": "US" } }, "statusDetails": "denied_by_security_policy" }
+  },
+  {
+    "timestamp": "2026-05-20T09:02:00Z",
+    "httpRequest": { "requestMethod": "GET", "requestUrl": "https://api.example.com/.env", "status": 403, "userAgent": "python-requests/2.31", "remoteIp": "198.51.100.52" },
+    "jsonPayload": { "enforcedSecurityPolicy": { "name": "edge-policy", "outcome": "DENY", "preconfiguredExprIds": ["owasp-crs-v030301-id913101-scanner"], "priority": 4000 }, "securityPolicyRequestData": { "remoteIpInfo": { "asn": 48090, "regionCode": "NL" } }, "statusDetails": "denied_by_security_policy" }
+  },
+  {
+    "timestamp": "2026-05-20T09:03:00Z",
+    "httpRequest": { "requestMethod": "POST", "requestUrl": "https://api.example.com/wp-login.php", "status": 403, "userAgent": "curl/8.0", "remoteIp": "198.51.100.50" },
+    "jsonPayload": { "enforcedSecurityPolicy": { "name": "edge-policy", "outcome": "DENY", "preconfiguredExprIds": ["owasp-crs-v030301-id913101-scanner"], "priority": 4000 }, "securityPolicyRequestData": { "remoteIpInfo": { "asn": 22295, "regionCode": "US" } }, "statusDetails": "denied_by_security_policy" }
+  }
 ]
