@@ -1,6 +1,6 @@
 ---
 name: optimizing-writing-plans
-description: Use immediately after the superpowers writing-plans skill produces an implementation plan (the brainstorm → spec → plan flow), before the execution handoff. An independent fresh-eyes second pass that reviews the plan against its spec and applies fixes. Do NOT use for arbitrary or external plans, generic "make this better" requests, or once execution has started.
+description: Use when writing-plans has just produced an implementation plan and you're about to hand off to execution — specifically the moment you're tempted to offer execution options (subagent-driven vs inline) or invoke subagent-driven-development / executing-plans. Run this first, before that handoff. Triggers: plan file just written or committed; writing-plans just finished; brainstorm → spec → plan flow just completed. Do NOT use for arbitrary or external plans, generic "make this better" requests, or once execution has started.
 ---
 
 # Optimizing Writing Plans
