@@ -1,0 +1,36 @@
+{
+  "id": "seeded-standard",
+  "notes": "One defect per lens. Fixes: Task 3 placeholder ('add appropriate validation' \u2014 spec states the concrete rules), Task 2 uses the notes table Task 4 creates (order), spec req 4 (auditTrail) has no task. Flag: Task 5 RetentionPolicyProvider is speculative scope ('configurable retention' is explicitly out of scope) \u2014 must be flagged in Decisions to confirm, not deleted. Canaries must survive verbatim.",
+  "checks": {
+    "fixed": [
+      {
+        "name": "placeholder-filled",
+        "absent": [
+          "add appropriate validation"
+        ]
+      },
+      {
+        "name": "table-before-endpoints",
+        "before": "notes table migration",
+        "after": "notes.controller.ts"
+      },
+      {
+        "name": "audit-gap-covered",
+        "present": [
+          "auditTrail"
+        ]
+      }
+    ],
+    "flagged": [
+      {
+        "name": "retention-overscope",
+        "keyword": "RetentionPolicyProvider"
+      }
+    ],
+    "preserved": [
+      "src/notes/note.entity.ts",
+      "npm test -- notes.service",
+      "expect FAIL: NotesService is not defined"
+    ]
+  }
+}

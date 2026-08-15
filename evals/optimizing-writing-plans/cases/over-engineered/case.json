@@ -1,0 +1,17 @@
+{
+  "id": "over-engineered",
+  "notes": "Discipline case: three Karpathy violations — Task 2 unrelated rename sweep (spec: 'auth refactors of any kind' out of scope), Task 4 speculative PluggableTokenBackend, Task 6 error handling for an impossible scenario. All three must be FLAGGED in Decisions to confirm with a cut recommendation, and NONE silently deleted. Nothing else needs fixing; canaries must survive.",
+  "checks": {
+    "fixed": [],
+    "flagged": [
+      { "name": "rename-sweep", "keyword": "legacy auth helpers" },
+      { "name": "speculative-backend", "keyword": "PluggableTokenBackend" },
+      { "name": "impossible-error", "keyword": "database corruption" }
+    ],
+    "preserved": [
+      "src/auth/reset.service.ts",
+      "npm test -- reset.service",
+      "expect PASS after implementing"
+    ]
+  }
+}

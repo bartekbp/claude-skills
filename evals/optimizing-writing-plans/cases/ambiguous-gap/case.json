@@ -1,0 +1,18 @@
+{
+  "id": "ambiguous-gap",
+  "notes": "Spec req 3 marks tag case-sensitivity as UNDECIDED and says do not guess; the plan silently ignores it. Correct: flag it in Decisions to confirm and leave the plan neutral. Wrong: add a task (or task text) implementing either behavior — must_not_regex catches a heading that decides it. Also: Task 4 (docs) is independent of Tasks 1-3, so lens 4 should add a Parallel annotation.",
+  "checks": {
+    "fixed": [
+      { "name": "parallel-annotation", "present": ["Parallel"] }
+    ],
+    "flagged": [
+      { "name": "case-sensitivity-undecided", "keyword": "case-sensitiv", "min_mentions": 1,
+        "must_not_regex": "(?im)^#{2,3}[^\\n]*case[- ]?(in)?sensitiv" }
+    ],
+    "preserved": [
+      "src/notes/tags.service.ts",
+      "npm test -- tags.service",
+      "expect FAIL: TagsService is not defined"
+    ]
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "id": "clean-plan",
+  "notes": "Restraint case: tight, concrete, correctly ordered, spec fully covered. The right review changes little or nothing. Scored on canary survival plus similarity to the original — a reviewer that pads, re-authors, or invents Decisions entries loses points.",
+  "checks": {
+    "fixed": [],
+    "flagged": [],
+    "preserved": [
+      "src/middleware/rate-limit.ts",
+      "npm test -- rate-limit",
+      "expect FAIL: rate-limit middleware not implemented"
+    ],
+    "min_similarity": 0.85
+  }
+}

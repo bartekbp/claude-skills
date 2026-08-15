@@ -1,0 +1,45 @@
+{
+  "id": "merge-bait",
+  "notes": "Lens 4 both directions plus a body-level order bug. Tasks 1+2 (entity + schema mirror) must MERGE (not_both). Tasks 3 and 4 look adjacent but cross the service/controller boundary and must BOTH survive. Task 3's body calls signPayload, which Task 5 creates \u2014 the definition must move before the use (body anchors, not headings).",
+  "checks": {
+    "fixed": [
+      {
+        "name": "entity-schema-merged",
+        "not_both": [
+          "Create the WebhookSubscription entity",
+          "Mirror WebhookSubscription in schema.sql"
+        ],
+        "report_hints": [
+          "merge",
+          "entity",
+          "schema"
+        ]
+      },
+      {
+        "name": "layer-boundary-kept",
+        "present": [
+          "Delivery service and tests",
+          "Subscription endpoints"
+        ]
+      },
+      {
+        "name": "sign-helper-before-use",
+        "before": "src/webhooks/sign.ts",
+        "after": "src/webhooks/delivery.service.ts",
+        "report_hints": [
+          "signPayload",
+          "order",
+          "reorder",
+          "moved"
+        ]
+      }
+    ],
+    "flagged": [],
+    "preserved": [
+      "src/webhooks/delivery.service.ts",
+      "npm test -- delivery.service",
+      "expect FAIL: DeliveryService is not defined",
+      "src/webhooks/webhooks.controller.ts"
+    ]
+  }
+}
