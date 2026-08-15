@@ -1,6 +1,6 @@
 {
   "name": "pr-tools",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Skills for cleaning up pull requests — simplify-pr marks formatter/lint and import-path-only files as Viewed so reviewers see only the substantive diffs.",
   "author": {
     "name": "Bartosz Polnik",
