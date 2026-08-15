@@ -1,0 +1,15 @@
+{
+  "id": "dir-move",
+  "notes": "Directory move with import-path fallout. The moved files resolve through git rename detection; app.ts and report.ts are path-only importers. service.ts adds a symbol to its import and changes behavior; main.ts changes a constant — both substantive.",
+  "fix_cmd": "scripts/format.sh",
+  "noise": [
+    "src/lib/math.ts",
+    "src/lib/strings.ts",
+    "src/app.ts",
+    "src/report.ts"
+  ],
+  "substantive": [
+    "src/service.ts",
+    "src/main.ts"
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "id": "mixed",
+  "notes": "Formatter noise and a move in one PR. worker.go changes only a block-style Go import path — the skill's blank covers JS/TS only, so it must stay expanded for manual review. d.ts mixes formatting with a multiplier change; api.ts changes a status code.",
+  "fix_cmd": "scripts/format.sh",
+  "noise": [
+    "src/a.ts",
+    "src/b.ts",
+    "src/c.ts",
+    "src/runtime/engine.ts",
+    "src/cli.ts"
+  ],
+  "substantive": [
+    "pkg/worker/worker.go",
+    "src/api.ts",
+    "src/d.ts"
+  ]
+}
