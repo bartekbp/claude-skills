@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+description: simplify-pr — does the right set of files collapse, and only that set?
+
+# Three arms. A bare `promptfoo eval` runs all of them: 3 x 7 cases = 21
+# sessions, each a full agentic run against its own synthetic repo. Filter
+# when iterating — and anchor it: `skill` also matches `skill-no-helper`.
+#
+#   the skill      --filter-providers '^skill$'              7 sessions
+#   prose only     --filter-providers '^skill-no-helper$'    7 sessions
+#   the control    --filter-providers '^control$'            7 sessions
+#
+# The control prices the skill: same repos, same prompt, no instructions. It
+# measures what a bare agent does with "get the diff into shape" — the deltas
+# to watch are `spared` (does it mark real changes viewed?) and whether it
+# falls into the per-file mutation loop the stub throttles.
+#
+# model/effort pin the arm. A run compares only to another run on the same
+# model, effort and CLI version; change any and it is a re-baseline.
+providers:
+  # Arms run on sonnet: cheaper, and it puts headroom under the metrics — opus
+  # scored 1.00 across the board, so it could no longer discriminate wording
+  # changes. Occasional opus spot-checks go in their own baseline section.
+  - id: file://../providers/claude_code.py
+    label: skill
+    config:
+      system_file: ../plugins/pr-tools/skills/simplify-pr/SKILL.md
+      announce_base_dir: true
+      model: claude-sonnet-5
+      effort: medium
+
+  # Same skill, helper unreachable (no base-directory line): measures whether
+  # the SKILL.md prose alone produces correct classification, batched
+  # mutations, and read-back verification — the arm where the stub's
+  # per-file-loop throttle can actually bite.
+  - id: file://../providers/claude_code.py
+    label: skill-no-helper
+    config:
+      system_file: ../plugins/pr-tools/skills/simplify-pr/SKILL.md
+      model: claude-sonnet-5
+      effort: medium
+
+  - id: file://../providers/claude_code.py
+    label: control
+    config:
+      system_file: simplify-pr/control.md
+      model: claude-sonnet-5
+      effort: medium
+
+prompts:
+  - >-
+    I just opened PR #1 on {{repo_slug}}: head branch `pr` against base
+    `main`. The checkout in the current directory is on `pr` and both refs are
+    local. Reviewers are about to look at it — get the Files Changed tab into
+    shape so they can focus on what matters. The project's auto-fix command is
+    `{{fix_cmd}}`.
+
+tests: file://cases.py:generate_tests

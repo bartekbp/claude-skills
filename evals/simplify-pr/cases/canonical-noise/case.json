@@ -1,0 +1,15 @@
+{
+  "id": "canonical-noise",
+  "notes": "Noise beyond the formatter: JSON key reorder, YAML key reorder (comments intact), TS indentation-only. Traps: notes.yaml changes only a comment (reviewers read comments) and pad.py changes whitespace (semantic in Python) — both must stay expanded, as must the real constant change.",
+  "fix_cmd": "scripts/format.sh",
+  "noise": [
+    "config/app.json",
+    "config/deploy.yaml",
+    "src/ws.ts"
+  ],
+  "substantive": [
+    "config/notes.yaml",
+    "src/pad.py",
+    "src/real.ts"
+  ]
+}

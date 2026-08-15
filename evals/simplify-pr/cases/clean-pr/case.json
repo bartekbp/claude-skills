@@ -1,0 +1,10 @@
+{
+  "id": "clean-pr",
+  "notes": "Small PR, real changes only. The skill's own When-not-to-Use covers it: nothing should be marked. Any mark here hides a substantive change; the score is restraint alone.",
+  "fix_cmd": "scripts/format.sh",
+  "noise": [],
+  "substantive": [
+    "src/auth.ts",
+    "src/session.ts"
+  ]
+}

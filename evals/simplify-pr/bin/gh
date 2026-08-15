@@ -1,0 +1,196 @@
+#!/usr/bin/env python3
+"""A `gh` stand-in for the simplify-pr eval. GitHub never sees these repos.
+
+Serves just enough of `gh api graphql` for the skill's workflow, answering from
+the local git checkout in the current directory:
+
+  PR metadata     id / baseRefOid / headRefOid / files          from git refs
+  markFileAsViewed mutations                                    recorded to a state file
+  viewerViewedState read-back                                   from that state file
+
+The state file is $GH_STUB_STATE (default `.git/gh-stub-state.json` in the
+repo). The provider points it at a fresh temp file per call, so arms and
+repeats never see each other's marks.
+
+**The throttle is simulated.** Real GitHub silently drops per-file
+markFileAsViewed calls issued in a loop — they return 200 and the state never
+persists (see the skill's "Rate-Limit Trap"). This stub mirrors that: a
+mutation request carrying a single alias persists only for the first
+THROTTLE_FREE requests, then keeps returning success while persisting nothing.
+A batched request (2+ aliases) always persists. The eval's `collapsed` metric
+therefore reads 0 for an agent that loops per-file and never verifies —
+exactly the failure the skill warns about.
+
+The PR number is accepted and ignored; there is one PR, base branch
+$GH_STUB_BASE (default `main`), head branch $GH_STUB_HEAD (default `pr`).
+"""
+
+import json
+import os
+import re
+import subprocess
+import sys
+
+THROTTLE_FREE = 3
+PR_ID = "PR_kwDOEVAL0001"
+
+
+def die(msg: str, code: int = 1):
+    print(f"gh-stub: {msg}", file=sys.stderr)
+    sys.exit(code)
+
+
+def git(*args: str) -> str:
+    done = subprocess.run(["git", *args], capture_output=True, text=True)
+    if done.returncode != 0:
+        die(f"git {' '.join(args)} failed: {done.stderr.strip()}")
+    return done.stdout
+
+
+def state_path() -> str:
+    if os.environ.get("GH_STUB_STATE"):
+        return os.environ["GH_STUB_STATE"]
+    root = git("rev-parse", "--git-dir").strip()
+    return os.path.join(root, "gh-stub-state.json")
+
+
+def load_state() -> dict:
+    try:
+        with open(state_path()) as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {"viewed": [], "single_alias_requests": 0, "requests": []}
+
+
+def save_state(state: dict):
+    with open(state_path(), "w") as f:
+        json.dump(state, f, indent=1)
+
+
+def base_head() -> tuple[str, str]:
+    base = git("rev-parse", os.environ.get("GH_STUB_BASE", "main")).strip()
+    head = git("rev-parse", os.environ.get("GH_STUB_HEAD", "pr")).strip()
+    return base, head
+
+
+def pr_files(base: str, head: str) -> list[str]:
+    # -M: a renamed file is one entry under its new path, like GitHub's list.
+    out = git("diff", "--name-only", "-M", base, head)
+    return [line for line in out.splitlines() if line]
+
+
+def paginate(items: list[str], query: str) -> tuple[list[str], dict]:
+    """Slice a file list the way GitHub's connection does. Enforcing `first:`
+    is the point — a stub that returns everything regardless would hide the
+    exact >100-files bug the skill warns about."""
+    m = re.search(r"files\s*\(\s*first\s*:\s*(\d+)", query)
+    first = int(m.group(1)) if m else len(items)
+    start = 0
+    m = re.search(r'after\s*:\s*"([^"]*)"', query)
+    if m:
+        try:
+            start = int(m.group(1).removeprefix("cursor")) + 1
+        except ValueError:
+            die(f"bad cursor: {m.group(1)}")
+    page = items[start : start + first]
+    end = start + len(page) - 1
+    page_info = {
+        "hasNextPage": start + len(page) < len(items),
+        "endCursor": f"cursor{end}" if page else None,
+    }
+    return page, page_info
+
+
+def handle_query(query: str) -> dict:
+    base, head = base_head()
+
+    if "markFileAsViewed" in query:
+        paths = re.findall(r'markFileAsViewed\s*\(\s*input:\s*{[^}]*path:\s*"((?:[^"\\]|\\.)*)"', query)
+        if not paths:
+            die("mutation carries no parsable path")
+        paths = [json.loads(f'"{p}"') for p in paths]  # unescape
+        known = set(pr_files(base, head))
+        unknown = [p for p in paths if p not in known]
+        if unknown:
+            # Real GitHub errors on a path outside the PR; failing loud beats
+            # recording a mark the metric would then count.
+            die(f"path not in PR: {unknown[0]}")
+        state = load_state()
+        if len(paths) == 1:
+            state["single_alias_requests"] += 1
+            persisted = state["single_alias_requests"] <= THROTTLE_FREE
+        else:
+            persisted = True
+        if persisted:
+            state["viewed"] = sorted(set(state["viewed"]) | set(paths))
+        state["requests"].append({"aliases": len(paths), "persisted": persisted})
+        save_state(state)
+        # Success either way — the mutation lies, that is the trap.
+        return {"data": {f"m{i}": {"pullRequest": {"id": PR_ID}} for i in range(1, len(paths) + 1)}}
+
+    if "viewerViewedState" in query:
+        files = pr_files(base, head)
+        viewed = set(load_state()["viewed"])
+        page, page_info = paginate(files, query)
+        nodes = [
+            {"path": p, "viewerViewedState": "VIEWED" if p in viewed else "UNVIEWED"}
+            for p in page
+        ]
+        return {"data": {"repository": {"pullRequest": {
+            "files": {"totalCount": len(files), "nodes": nodes, "pageInfo": page_info}}}}}
+
+    if "pullRequest" in query:
+        files = pr_files(base, head)
+        page, page_info = paginate(files, query)
+        return {"data": {"repository": {"pullRequest": {
+            "id": PR_ID, "baseRefOid": base, "headRefOid": head,
+            "files": {"totalCount": len(files),
+                      "nodes": [{"path": p} for p in page],
+                      "pageInfo": page_info}}}}}
+
+    die(f"unrecognized query: {query[:120]}")
+
+
+def main():
+    args = sys.argv[1:]
+    if len(args) < 2 or args[0] != "api" or args[1] != "graphql":
+        die(
+            f"`gh {' '.join(args[:2])}` is not available in this environment; "
+            "only `gh api graphql` is supported"
+        )
+
+    query, jq_expr = None, None
+    i = 2
+    while i < len(args):
+        a = args[i]
+        if a in ("-f", "-F", "--raw-field", "--field"):
+            i += 1
+            key, _, value = args[i].partition("=")
+            if key == "query":
+                if a in ("-F", "--field") and value.startswith("@"):
+                    with open(value[1:]) as f:
+                        query = f.read()
+                else:
+                    query = value
+        elif a == "--jq":
+            i += 1
+            jq_expr = args[i]
+        elif a.startswith("--jq="):
+            jq_expr = a[len("--jq="):]
+        i += 1
+
+    if query is None:
+        die("no query field")
+
+    response = json.dumps(handle_query(query))
+    if jq_expr:
+        done = subprocess.run(["jq", jq_expr], input=response, capture_output=True, text=True)
+        if done.returncode != 0:
+            die(f"jq failed: {done.stderr.strip()}")
+        sys.stdout.write(done.stdout)
+    else:
+        print(response)
+
+
+if __name__ == "__main__":
+    main()

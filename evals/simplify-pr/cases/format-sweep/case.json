@@ -1,0 +1,18 @@
+{
+  "id": "format-sweep",
+  "notes": "Formatter sweep alongside a feature. mixed.ts carries formatting AND a real cap change (5 -> 3) — marking it viewed hides a behavior change. new-module.ts is added, so it has no base and must stay expanded.",
+  "fix_cmd": "scripts/format.sh",
+  "noise": [
+    "src/config.ts",
+    "src/logger.ts",
+    "src/http.ts",
+    "src/dates.ts",
+    "src/ids.ts",
+    "src/env.ts"
+  ],
+  "substantive": [
+    "src/feature.ts",
+    "src/mixed.ts",
+    "src/new-module.ts"
+  ]
+}
