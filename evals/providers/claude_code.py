@@ -56,26 +56,25 @@ HERE = Path(__file__).resolve().parent
 EVAL_HOME = Path(os.environ.get("CLAUDE_EVAL_HOME", Path.home() / ".claude-eval"))
 TIMEOUT_S = int(os.environ.get("CLAUDE_EVAL_TIMEOUT", "1200"))
 
-ISOLATE = [
+# Base isolation. Tools are pre-approved because a headless `-p` session cannot
+# answer a permission prompt — without the grant the agent stalls asking for
+# approval nobody can give. Write/Edit are blocked by default (a marker of
+# review-only suites); a suite whose skill must edit files sets
+# `allow_edits: true` in its arm config.
+ISOLATE_BASE = [
     "--strict-mcp-config",
     "--mcp-config",
     '{"mcpServers":{}}',
-    # Bash/Read/Grep/Glob are pre-approved — the skill's whole job is running a
-    # helper script and gh against a checkout, and a headless `-p` session
-    # cannot answer a permission prompt: without the grant the agent stalls and
-    # asks for approval nobody can give. Write/Edit are blocked: marking files
-    # viewed has no business changing the repo.
-    "--allowedTools",
-    "Bash",
-    "Read",
-    "Grep",
-    "Glob",
-    "--disallowed-tools",
-    "Write",
-    "Edit",
-    "WebFetch",
-    "WebSearch",
 ]
+TOOLS_RO = ["Bash", "Read", "Grep", "Glob"]
+TOOLS_RW = TOOLS_RO + ["Write", "Edit"]
+BLOCK_WEB = ["WebFetch", "WebSearch"]
+
+
+def isolate_flags(config: dict) -> list[str]:
+    allowed = TOOLS_RW if config.get("allow_edits") else TOOLS_RO
+    blocked = list(BLOCK_WEB) if config.get("allow_edits") else ["Write", "Edit", *BLOCK_WEB]
+    return [*ISOLATE_BASE, "--allowedTools", *allowed, "--disallowed-tools", *blocked]
 
 
 @lru_cache(maxsize=1)
@@ -140,12 +139,17 @@ def call_api(prompt: str, options: dict, context: dict) -> dict:
     if not system_path.exists():
         return {"error": f"system_file not found: {system_path}"}
     system_prompt = system_path.read_text()
+    if config.get("append_file"):
+        system_prompt += "\n\n" + (HERE.parent / config["append_file"]).read_text()
     if config.get("announce_base_dir"):
         system_prompt += f"\n\nBase directory for this skill: {system_path.parent}"
 
-    stub_dir = (HERE.parent / config.get("stub_path", "simplify-pr/bin")).resolve()
-    if not (stub_dir / "gh").exists():
-        return {"error": f"gh stub not found in {stub_dir}"}
+    # gh-stub machinery is per-suite: only when the arm names a stub_path.
+    stub_dir = None
+    if config.get("stub_path"):
+        stub_dir = (HERE.parent / config["stub_path"]).resolve()
+        if not (stub_dir / "gh").exists():
+            return {"error": f"gh stub not found in {stub_dir}"}
 
     model = os.environ.get("SKILL_EVAL_MODEL") or config["model"]
     effort = os.environ.get("SKILL_EVAL_EFFORT") or config["effort"]
@@ -155,7 +159,7 @@ def call_api(prompt: str, options: dict, context: dict) -> dict:
         "-p",
         "--output-format",
         "json",
-        *ISOLATE,
+        *isolate_flags(config),
         "--model",
         model,
         "--effort",
@@ -164,20 +168,20 @@ def call_api(prompt: str, options: dict, context: dict) -> dict:
         system_prompt,
     ]
 
-    # Each call gets its own copy of the repo. Write/Edit are blocked but Bash
-    # is not, and the first baseline's control arm rewrote the shared checkout's
-    # `pr` branch (amended the noise away) — with arms running concurrently
-    # against one .work/<id>, that mutates another arm's ground truth mid-run.
-    scratch = Path(tempfile.mkdtemp(prefix="simplify-eval-"))
+    # Each call gets its own copy of the repo/workspace: agents run concurrently
+    # and may mutate it (an early control arm rewrote a shared checkout's
+    # branch; edit-suites modify files by design).
+    scratch = Path(tempfile.mkdtemp(prefix="skill-eval-"))
     call_repo = scratch / "repo"
     shutil.copytree(repo_dir, call_repo, symlinks=True)
     state_file = scratch / "state.json"
     env = {
         **os.environ,
         "CLAUDE_CONFIG_DIR": str(EVAL_HOME),
-        "PATH": f"{stub_dir}:{os.environ.get('PATH', '')}",
-        "GH_STUB_STATE": str(state_file),
     }
+    if stub_dir:
+        env["PATH"] = f"{stub_dir}:{os.environ.get('PATH', '')}"
+        env["GH_STUB_STATE"] = str(state_file)
     try:
         done = subprocess.run(
             cmd,
@@ -205,14 +209,23 @@ def call_api(prompt: str, options: dict, context: dict) -> dict:
     except Exception:
         pass
 
-    # What persisted in the stub is the ground truth the assert grades; an
-    # untouched state file means the agent never issued a mutation.
-    try:
-        state = json.loads(state_file.read_text())
-    except (FileNotFoundError, json.JSONDecodeError):
-        state = {"viewed": [], "requests": []}
+    # Ground truth rides back as trailers on the output, so the assert grades
+    # artifacts rather than prose: the stub's persisted state (gh suites) and
+    # the files the skill was supposed to edit (capture_files suites).
+    state = None
+    if stub_dir:
+        try:
+            state = json.loads(state_file.read_text())
+        except (FileNotFoundError, json.JSONDecodeError):
+            state = {"viewed": [], "requests": []}
+        text += f"\n\n<gh-stub-state>{json.dumps(state)}</gh-stub-state>"
+    for rel in config.get("capture_files") or []:
+        try:
+            content = (call_repo / rel).read_text()
+        except OSError:
+            content = ""
+        text += f"\n\n<captured-file path={json.dumps(rel)}>\n{content}\n</captured-file>"
     shutil.rmtree(scratch, ignore_errors=True)
-    text += f"\n\n<gh-stub-state>{json.dumps(state)}</gh-stub-state>"
 
     return {
         "output": text,

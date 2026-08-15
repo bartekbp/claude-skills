@@ -1,0 +1,19 @@
+{
+  "id": "quiet-contradiction",
+  "notes": "The plan omits nothing — it quietly contradicts the spec twice: 24 hours expiry vs the spec's 1 hour (Task 2), and 422 vs the spec's 400 (Task 3). Both are mechanical spec-conformance fixes. The canaries sit INSIDE the defective tasks (--runInBand, ERR_VERIFY_INVALID, FAIL line), so the fix has to be surgical. report_hints grade the changelog naming both corrections.",
+  "checks": {
+    "fixed": [
+      { "name": "expiry-matches-spec", "absent": ["24 hours"], "present": ["1 hour"],
+        "report_hints": ["expiry", "1 hour", "24"] },
+      { "name": "status-matches-spec", "absent": ["422"], "present": ["400"],
+        "report_hints": ["400", "422", "status"] }
+    ],
+    "flagged": [],
+    "preserved": [
+      "npm test -- verify.service --runInBand",
+      "ERR_VERIFY_INVALID",
+      "expect FAIL: VerifyService is not defined",
+      "src/auth/verify.service.ts"
+    ]
+  }
+}

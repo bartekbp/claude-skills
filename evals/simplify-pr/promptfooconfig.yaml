@@ -24,6 +24,7 @@ providers:
     label: skill
     config:
       system_file: ../plugins/pr-tools/skills/simplify-pr/SKILL.md
+      stub_path: simplify-pr/bin
       announce_base_dir: true
       model: claude-sonnet-5
       effort: medium
@@ -36,6 +37,7 @@ providers:
     label: skill-no-helper
     config:
       system_file: ../plugins/pr-tools/skills/simplify-pr/SKILL.md
+      stub_path: simplify-pr/bin
       model: claude-sonnet-5
       effort: medium
 
@@ -43,6 +45,7 @@ providers:
     label: control
     config:
       system_file: simplify-pr/control.md
+      stub_path: simplify-pr/bin
       model: claude-sonnet-5
       effort: medium
 

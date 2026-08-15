@@ -62,7 +62,8 @@ Discipline carried over from the marketplace harness, still true here:
 evals/
   providers/claude_code.py     the harness, shared by every suite
   simplify-pr/                 promptfooconfig.yaml, cases.py, asserts/, bin/gh (GitHub stub),
-                               fixtures/, cases/, baseline.md, README.md
+                               fixtures/, cases/, tests/run-helper.sh, baseline.md, README.md
+  optimizing-writing-plans/    seeded-defect spec+plan fixtures, judge-free artifact grading
 ```
 
 Only the provider is shared. Each suite decides its own label shape, metrics and prompt.

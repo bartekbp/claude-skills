@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+description: optimizing-writing-plans — does the review fix the mechanical, flag the judgment calls, and leave the rest alone?
+
+# Two arms x 3 cases = 6 sessions on a bare `promptfoo eval`. The skill arm's
+# orchestrator delegates the review to an opus subagent (per the skill's own
+# delegation section), so its sessions cost more than the sonnet label implies.
+#
+#   the skill    --filter-providers '^skill$'      3 sessions
+#   the control  --filter-providers '^control$'    3 sessions
+#
+# The control prices the skill's authority model: a bare reviewer will likely
+# fix AND silently re-author — watch `flagged` (does it escalate judgment
+# calls?) and `restraint` on clean-plan.
+providers:
+  - id: file://../providers/claude_code.py
+    label: skill
+    config:
+      system_file: ../plugins/brainstorming-tools/skills/optimizing-writing-plans/SKILL.md
+      announce_base_dir: true
+      allow_edits: true
+      capture_files: [plan.md]
+      model: claude-sonnet-5
+      effort: medium
+
+  - id: file://../providers/claude_code.py
+    label: control
+    config:
+      system_file: optimizing-writing-plans/control.md
+      allow_edits: true
+      capture_files: [plan.md]
+      model: claude-sonnet-5
+      effort: medium
+
+prompts:
+  - >-
+    I've just finished writing the implementation plan — it's at `plan.md` in
+    the current directory, and the spec it implements is at `spec.md`. Review
+    the plan before we hand off to execution.
+
+tests: file://cases.py:generate_tests
