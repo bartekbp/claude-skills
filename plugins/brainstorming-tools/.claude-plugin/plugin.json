@@ -1,6 +1,6 @@
 {
   "name": "brainstorming-tools",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Skills for working with superpowers implementation plans — optimizing-writing-plans runs an independent second-pass review-and-fix on a freshly written plan.",
   "author": {
     "name": "Bartosz Polnik",
