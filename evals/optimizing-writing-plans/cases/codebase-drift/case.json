@@ -1,0 +1,30 @@
+{
+  "id": "codebase-drift",
+  "notes": "Codebase-fit lens. The repo owns the concept as 'webhook' (src/webhooks/: WebhookDispatchService, WebhookRepository, signPayload); the plan invents a 'notifier' module with a Store suffix, forks the existing signing helper as computeSignature, and Task 4 extends the legacy-replay endpoint that nothing in the repo calls. All three are judgment calls: flag in Decisions to confirm while leaving the plan text in place. min_mentions = seeded occurrence count + 1, so the flag must add a mention.",
+  "checks": {
+    "fixed": [],
+    "flagged": [
+      {
+        "name": "vocab-drift",
+        "keyword": "NotifierStore",
+        "min_mentions": 11
+      },
+      {
+        "name": "helper-fork",
+        "keyword": "computeSignature",
+        "min_mentions": 3
+      },
+      {
+        "name": "dead-endpoint-extended",
+        "keyword": "legacy-replay",
+        "min_mentions": 3
+      }
+    ],
+    "preserved": [
+      "src/webhooks/webhook.repository.ts",
+      "npm test -- fanout.service",
+      "Expected: FAIL with \"Cannot find module './fanout.service'\"",
+      "router.get(\"/webhooks/:id/failures\", listFailuresHandler(store));"
+    ]
+  }
+}

@@ -24,7 +24,7 @@ The independence this skill promises is only real in a fresh context: the main t
 The subagent cannot see this skill. Its prompt must carry:
 
 - the absolute paths to the **plan file** and the **spec file** — paths only, no summary of either; summarizing would smuggle the author's framing into the fresh context
-- the absolute path to this skill's SKILL.md (in this skill's base directory), with the instruction to read it first and follow it exactly — the four lenses, the fix-vs-flag discipline, and the output format
+- the absolute path to this skill's SKILL.md (in this skill's base directory), with the instruction to read it first and follow it exactly — the five lenses, the fix-vs-flag discipline, and the output format
 - the karpathy-guidelines lens: the path to that skill's SKILL.md if you can resolve it, otherwise paste its four principles (think before coding, simplicity first, surgical changes, goal-driven execution) into the prompt
 - write access expectation: the subagent edits the plan file in place, leaving **both** mandated blocks in the file — Decisions to confirm at the top, the What-I-changed note at the end (with "No changes needed." when empty) — and repeats both in its report
 
@@ -35,9 +35,9 @@ Relay the report to the user, then proceed to the execution handoff. If subagent
 - Right after `writing-plans` writes the plan, before it offers the execution choice. Runs once per plan.
 - NOT for external/arbitrary plans, generic "improve this", or after execution has begun.
 
-## The Four Lenses
+## The Five Lenses
 
-Run all four. For each finding, decide **fix** or **flag** per the discipline above.
+Run all five. For each finding, decide **fix** or **flag** per the discipline above.
 
 1. **Soundness & right-sizing** — two directions:
    - *Too little / wrong:* wrong task order (a task using something a later task creates), missing tasks, steps that won't reach the goal, risky/unstated assumptions → reorder and add obvious missing tasks; flag architecture risks.
@@ -45,6 +45,11 @@ Run all four. For each finding, decide **fix** or **flag** per the discipline ab
 2. **Completeness vs spec** — walk every spec requirement; can you point to a task implementing it? Add a task for a clear gap; flag a gap whose intended behavior is ambiguous.
 3. **Executability** — placeholders ("add appropriate validation"), TODOs, vague steps, undefined types/functions/RPCs, missing `run:` commands or expected FAIL/PASS. Fill in the concrete content the author should have written. (These are exactly the failures `writing-plans` forbids.)
 4. **Brevity + parallelism** — merge over-granular trivial tasks that touch the same file / always change together (entity + migration + schema mirror; a GET + PUT on one controller). Keep real layer/service boundaries separate. Reorder independent tasks adjacent and annotate them (`**Parallel:** independent of Tasks N–M`); do NOT build a dependency graph or named tracks.
+5. **Codebase fit** — the plan's names, homes and claims, checked against the repository by search, not taken from the plan's own framing. Every finding here is **flag, never fix**: reuse and renames change interfaces across tasks, so a silent rewrite is re-authoring even when the reviewer is right.
+   - *Vocabulary:* every new public identifier uses the term the codebase already uses for that concept. A new name with no hits, for a concept whose established term is all over the repo, is drift every later file will inherit → flag it, naming the established term.
+   - *Duplication:* a helper or mechanism a task creates that the repo already has — same job, different name → flag it with the existing one named. Do not merge the tasks to reuse it yourself.
+   - *Placement:* each `Create:` path sits where the concept's siblings live. A new directory for a concept an existing directory owns → flag.
+   - *Surface claims:* a task that extends or keeps an existing endpoint, field, or enum value checks its callers by search, one hop deep — the only caller may itself be dead code. Extending a surface with no live caller → flag, with the evidence.
 
 ## Preserve What Works
 
@@ -64,5 +69,6 @@ A task that already ends in a runnable command with an expected outcome is **don
 - **Re-authoring instead of reviewing** — silently redesigning architecture, data types, or scope the author chose. Flag it; don't rewrite it.
 - **Silent judgment calls** — deleting a task (even an over-scoped one) or changing behavior on a guess. If it's a scope cut or the spec is ambiguous, flag in Decisions to confirm.
 - **Only adding, never trimming** — a plan can fail by doing too much. Hunt over-engineering and unrelated refactors as hard as you hunt gaps.
-- **Skipping lenses** — only catching placeholders and missing the soundness/order problems. Run all four.
+- **Skipping lenses** — only catching placeholders and missing the soundness/order problems. Run all five.
+- **"Fixing" a duplication or naming finding** — rewriting tasks to reuse an existing helper or to rename a drifted identifier is re-authoring, however right the call is. Lens 5 findings are flags: the plan text survives, the Decisions block carries the recommendation.
 - **Over-merging or graphing** — collapsing real boundaries into one task, or replacing the linear list with a dependency graph. Keep the list linear, annotate parallelism.
