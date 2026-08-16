@@ -1,5 +1,29 @@
 # Baseline
 
+## 2026-08-16 — fifth lens (codebase fit) + codebase-drift case
+
+Skill arm only. New case `codebase-drift` (3 seeded flag defects: vocabulary drift,
+helper fork, caller-less endpoint extended; 4 canaries; `min_mentions` = seed count + 1
+since realistic plans repeat identifiers).
+
+| Run | codebase-drift | clean-plan |
+|---|---|---|
+| RED — pre-lens skill, 3 reps | 0.72 / 0.72 / 0.89 | — |
+| GREEN — lens 5, 3 reps | **1.00 × 3** | **1.00 × 3** |
+
+- **RED was consistent, and the failure was the discipline, not discovery**: the
+  baseline reviewer *found* all three problems every rep but silently rewrote the
+  helper fork away (`helper-fork(deleted)` 3/3) instead of flagging — right call,
+  wrong authority. The lens therefore leads with flag-never-fix rather than with
+  detection.
+- **GREEN across reps with zero variance**, and clean-plan restraint held 1.00 × 3 —
+  the new lens invents nothing on a plan with no fit defects.
+- **Fifth fixture lesson** (same species as the fourth): the first RED runs also lost
+  a canary because the seeded expected-FAIL text was technically wrong ("FanoutService
+  is not defined" where a missing module fails with "Cannot find module") — reviewers
+  kept legitimately correcting it. Canary text must survive a *correct* review, which
+  means it must itself be correct.
+
 ## 2026-08-15 — GREEN after wording fixes
 
 Skill arm, all 6 cases, ~$2.80 (full run $2.42 + clean-plan rerun $0.39). SKILL.md

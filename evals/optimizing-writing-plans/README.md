@@ -41,6 +41,7 @@ plan must not implement), `min_mentions` (for defects seeded in the spec, not th
 | `ambiguous-gap` | spec marks a behavior undecided — flag it, do NOT invent an implementation; plus the Parallel annotation |
 | `quiet-contradiction` | plan contradicts spec values (expiry, status code) without omitting anything; canaries inside the defective tasks force surgical fixes |
 | `merge-bait` | lens 4 both directions (must-merge pair, must-not-merge layer boundary) + a body-level order inversion |
+| `codebase-drift` | lens 5: vocabulary drift (`NotifierStore` where the repo says webhook + repository), a fork of an existing signing helper, a task extending a caller-less endpoint — all flag-not-fix; the pre-lens baseline silently rewrote the fork away in 3/3 reps |
 
 ## Lessons already priced in
 
