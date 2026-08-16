@@ -1,6 +1,9 @@
 ---
 name: analyze-error-reporting
 description: Use when asked whether there are errors or error logs, what's erroring, what exceptions/failures occurred, or what's broken in a GCP project over a time window — ad-hoc checks like "any errors in dev in the past 10 hours?", a weekly what's-new-or-spiking review, or a post-deploy regression check. Rolls errors up by service and flags NEW vs spiking groups. GCP-specific; requires the gcloud CLI.
+context: fork
+agent: general-purpose
+background: true
 ---
 
 # Analyze Error Reporting

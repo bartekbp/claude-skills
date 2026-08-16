@@ -1,7 +1,7 @@
 {
   "name": "gcloud-tools",
-  "version": "0.2.0",
-  "description": "Skills that wrap the gcloud CLI to analyze Google Cloud operational and security signals — analyze-cloud-armor finds Cloud Armor WAF false positives, and analyze-error-reporting produces a weekly Cloud Error Reporting digest of new and spiking error groups.",
+  "version": "0.3.0",
+  "description": "Skills that wrap the gcloud CLI to analyze Google Cloud operational and security signals \u2014 analyze-cloud-armor finds Cloud Armor WAF false positives, and analyze-error-reporting produces a weekly Cloud Error Reporting digest of new and spiking error groups.",
   "author": {
     "name": "Bartosz Polnik",
     "email": "bartoszpolnik@gmail.com"

@@ -1,6 +1,9 @@
 ---
 name: analyze-cloud-armor
 description: Use when reviewing Google Cloud Armor or HTTPS Load Balancer logs to find WAF false positives — legitimate traffic your security policy is blocking. For tuning over-broad rules, investigating blocked users (by country/ASN), and confirming whether blocks are real customers or attackers. GCP-specific; requires the gcloud CLI.
+context: fork
+agent: general-purpose
+background: true
 ---
 
 # Analyze Cloud Armor

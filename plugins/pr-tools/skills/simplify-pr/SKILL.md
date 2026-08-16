@@ -1,6 +1,9 @@
 ---
 name: simplify-pr
 description: Use whenever a PR carries mechanical review noise alongside the real change — a mass formatter/linter pass (often hundreds of files) or import-path-only edits from moving files between directories. Reviewers always want a clean diff, so apply this proactively after opening a PR or before requesting review on any such PR. Marks the noise-only files as "Viewed" via the GitHub GraphQL API so they collapse by default, leaving only the substantive files expanded in the Files Changed tab.
+context: fork
+agent: general-purpose
+background: true
 ---
 
 # Simplify PR for Review
@@ -19,17 +22,12 @@ Four classes of noise are collapsed, each proven deterministically:
 3. **Whitespace-only** — base and head are identical under `diff -wB`, gated to extensions where whitespace carries no semantics (JS/TS, Java, Go, C-family, CSS, SQL, …). Python, YAML, Makefiles and Markdown are excluded: an indentation change there is a real change.
 4. **Canonical JSON/YAML** — same parsed data, different key order or layout. JSON via `jq -S` equality. YAML additionally requires the comment lines to be unchanged — parsing drops comments, and a comment-only edit is written *for* reviewers, so it must stay expanded.
 
-## Run It in a Subagent
+## Execution Context
 
-The workflow is mechanical — fetch PR metadata, run the helper against the checkout, read back the verification. It needs no top-tier reasoning, so don't spend main-thread context or an expensive model on it: dispatch one general-purpose subagent with `model: sonnet` to execute the whole workflow and report back.
-
-The subagent cannot see this skill. Its prompt must carry everything it needs:
-
-- the repo slug, PR number, the working directory of the checkout, and the project's auto-fix command
-- the absolute path to [mark-formatting-files-viewed.sh](mark-formatting-files-viewed.sh) in this skill's base directory, with the instruction to run it as `<script> OWNER/REPO PR_NUMBER "<auto-fix-command>"` from the repo root
-- what to report back: the helper's classification counts (formatting-only / import-path-only / substantive / added) and the verified VIEWED count from the read-back
-
-Relay the subagent's report to the user. If subagent dispatch is unavailable in the current environment, run the workflow inline yourself instead.
+This skill runs as a background fork (`context: fork`) — already isolated from the main
+conversation, costing it no context. Execute the whole workflow yourself, directly; do not
+dispatch a further subagent. The work is mechanical: fetch PR metadata, run the helper against
+the checkout, read back the verification, report what was collapsed and why.
 
 ## When to Use
 

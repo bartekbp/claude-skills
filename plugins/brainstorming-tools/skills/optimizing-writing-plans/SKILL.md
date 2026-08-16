@@ -1,6 +1,9 @@
 ---
 name: optimizing-writing-plans
 description: Use when writing-plans has just produced an implementation plan and you're about to hand off to execution — specifically the moment you're tempted to offer execution options (subagent-driven vs inline) or invoke subagent-driven-development / executing-plans. Run this first, before that handoff. Triggers: plan file just written or committed; writing-plans just finished; brainstorm → spec → plan flow just completed. Do NOT use for arbitrary or external plans, generic "make this better" requests, or once execution has started.
+context: fork
+agent: general-purpose
+background: false
 ---
 
 # Optimizing Writing Plans
@@ -17,18 +20,25 @@ description: Use when writing-plans has just produced an implementation plan and
 
 **Stay a reviewer, not a re-author.** Review the plan against the spec. You MAY check the codebase to verify a path/type/convention, but surface corrections as scoped fixes with a one-line reason — do not rewrite the whole plan or invent new scope.
 
-## Run It in a Subagent
+## You Are the Fresh Context
 
-The independence this skill promises is only real in a fresh context: the main thread just *wrote* the plan, so it shares the author's assumptions and will re-approve them. Dispatch one general-purpose subagent with `model: opus` to do the review — this is judgment work (scope calls, spec gaps, architecture risks), not mechanics, so it gets the top-tier model.
+This skill runs as a background fork (`context: fork`) — you are NOT the thread that wrote the
+plan, which is the whole point: the author's context re-approves its own assumptions, and yours
+cannot. Do the review yourself, directly. Do not dispatch a further subagent.
 
-The subagent cannot see this skill. Its prompt must carry:
+The invocation argument must carry the absolute paths to the **plan file** and the **spec file**
+— paths only, no summary of either; a summary would smuggle the author's framing into this fresh
+context. If either path is missing from the argument, return immediately asking for it and review
+nothing.
 
-- the absolute paths to the **plan file** and the **spec file** — paths only, no summary of either; summarizing would smuggle the author's framing into the fresh context
-- the absolute path to this skill's SKILL.md (in this skill's base directory), with the instruction to read it first and follow it exactly — the five lenses, the fix-vs-flag discipline, and the output format
-- the karpathy-guidelines lens: the path to that skill's SKILL.md if you can resolve it, otherwise paste its four principles (think before coding, simplicity first, surgical changes, goal-driven execution) into the prompt
-- write access expectation: the subagent edits the plan file in place, leaving **both** mandated blocks in the file — Decisions to confirm at the top, the What-I-changed note at the end (with "No changes needed." when empty) — and repeats both in its report
+Apply the karpathy-guidelines lens: read that skill's SKILL.md if you can resolve it, otherwise
+work from its four principles — think before coding, simplicity first, surgical changes,
+goal-driven execution.
 
-Relay the report to the user, then proceed to the execution handoff. If subagent dispatch is unavailable, run the review inline — it is still worth doing, just weaker as a second opinion.
+Edit the plan file in place, leaving **both** mandated blocks in the file — Decisions to confirm
+at the top, the What-I-changed note at the end (with "No changes needed." when empty) — and
+repeat both in your report, which is what the main conversation will relay to the user before the
+execution handoff.
 
 ## When to Use
 
