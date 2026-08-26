@@ -8,7 +8,7 @@ Shared setup is in [../README.md](../README.md).
 ## How it works
 
 Each case is an authored **spec + plan pair with seeded defects** — labels true by
-construction, like simplify-pr's fixtures. Every defect carries a grep-checkable
+construction, like compress-pr's fixtures. Every defect carries a grep-checkable
 signature in `case.json`: a string that must vanish (placeholder), appear (missing
 requirement), reorder (task using a table created later), or appear twice (a judgment
 call that must survive in the plan AND be raised in a Decisions to confirm block).

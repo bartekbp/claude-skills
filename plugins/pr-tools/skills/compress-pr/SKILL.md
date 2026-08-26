@@ -1,12 +1,12 @@
 ---
-name: simplify-pr
+name: compress-pr
 description: Use whenever a PR carries mechanical review noise alongside the real change — a mass formatter/linter pass (often hundreds of files) or import-path-only edits from moving files between directories. Reviewers always want a clean diff, so apply this proactively after opening a PR or before requesting review on any such PR. Marks the noise-only files as "Viewed" via the GitHub GraphQL API so they collapse by default, leaving only the substantive files expanded in the Files Changed tab.
 context: fork
 agent: general-purpose
 background: true
 ---
 
-# Simplify PR for Review
+# Compress PR for Review
 
 ## Overview
 

@@ -1,4 +1,4 @@
-# simplify-pr
+# compress-pr
 
 Does the right set of files collapse, and only that set?
 

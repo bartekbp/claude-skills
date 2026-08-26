@@ -5,7 +5,7 @@
 #   - runs of blank lines collapse to one
 #   - the file ends with exactly one newline
 # Every transform is idempotent, so formatted files are a fixed point — the
-# property the simplify-pr detection ("format the base, compare to head")
+# property the compress-pr detection ("format the base, compare to head")
 # depends on. JS/TS only; .go files are untouched, like a real JS formatter.
 #
 # Usage: scripts/format.sh [files...]    no args: every tracked .ts/.js file
