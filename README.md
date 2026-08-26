@@ -51,7 +51,7 @@ You can also toggle auto-update per marketplace from the `/plugin` UI (Marketpla
 
 | Skill | Triggers on |
 |-------|-------------|
-| `simplify-pr` | A PR mixes a substantive change with mechanical review noise — a mass formatter/linter pass or import-path-only edits from moving files. Marks the noise-only files as "Viewed" via the GitHub GraphQL API so they collapse by default, leaving only the real-change files expanded. |
+| `compress-pr` | A PR mixes a substantive change with mechanical review noise — a mass formatter/linter pass or import-path-only edits from moving files. Marks the noise-only files as "Viewed" via the GitHub GraphQL API so they collapse by default, leaving only the real-change files expanded. |
 
 ### gcloud-tools
 
@@ -73,7 +73,7 @@ plugins/
   pr-tools/
     .claude-plugin/plugin.json
     skills/
-      simplify-pr/SKILL.md
+      compress-pr/SKILL.md
 ```
 
 ## Adding a skill

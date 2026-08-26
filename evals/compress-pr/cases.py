@@ -50,11 +50,11 @@ def generate_tests() -> list[dict]:
                     {
                         "type": "python",
                         "value": "file://asserts/check.py",
-                        "metric": "simplify",
+                        "metric": "compress",
                     }
                 ],
             }
         )
     if not tests:
-        raise SystemExit("no cases under simplify-pr/cases/")
+        raise SystemExit("no cases under compress-pr/cases/")
     return tests

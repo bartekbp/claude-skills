@@ -10,7 +10,7 @@
 set -euo pipefail
 
 SUITE_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-HELPER="$SUITE_DIR/../../plugins/pr-tools/skills/simplify-pr/mark-formatting-files-viewed.sh"
+HELPER="$SUITE_DIR/../../plugins/pr-tools/skills/compress-pr/mark-formatting-files-viewed.sh"
 WORK="$SUITE_DIR/.work-tests"
 export PATH="$SUITE_DIR/bin:$PATH"
 

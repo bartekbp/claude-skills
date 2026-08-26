@@ -1,4 +1,4 @@
-"""Grade a simplify-pr run against the authored file labels.
+"""Grade a compress-pr run against the authored file labels.
 
 No LLM judge: the ground truth is which files ended up VIEWED in the gh stub's
 persisted state, which the provider appends to the output as a

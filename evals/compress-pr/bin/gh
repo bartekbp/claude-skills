@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A `gh` stand-in for the simplify-pr eval. GitHub never sees these repos.
+"""A `gh` stand-in for the compress-pr eval. GitHub never sees these repos.
 
 Serves just enough of `gh api graphql` for the skill's workflow, answering from
 the local git checkout in the current directory:

@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
-description: simplify-pr — does the right set of files collapse, and only that set?
+description: compress-pr — does the right set of files collapse, and only that set?
 
 # Three arms. A bare `promptfoo eval` runs all of them: 3 x 7 cases = 21
 # sessions, each a full agentic run against its own synthetic repo. Filter
@@ -23,8 +23,8 @@ providers:
   - id: file://../providers/claude_code.py
     label: skill
     config:
-      system_file: ../plugins/pr-tools/skills/simplify-pr/SKILL.md
-      stub_path: simplify-pr/bin
+      system_file: ../plugins/pr-tools/skills/compress-pr/SKILL.md
+      stub_path: compress-pr/bin
       announce_base_dir: true
       model: claude-sonnet-5
       effort: medium
@@ -36,16 +36,16 @@ providers:
   - id: file://../providers/claude_code.py
     label: skill-no-helper
     config:
-      system_file: ../plugins/pr-tools/skills/simplify-pr/SKILL.md
-      stub_path: simplify-pr/bin
+      system_file: ../plugins/pr-tools/skills/compress-pr/SKILL.md
+      stub_path: compress-pr/bin
       model: claude-sonnet-5
       effort: medium
 
   - id: file://../providers/claude_code.py
     label: control
     config:
-      system_file: simplify-pr/control.md
-      stub_path: simplify-pr/bin
+      system_file: compress-pr/control.md
+      stub_path: compress-pr/bin
       model: claude-sonnet-5
       effort: medium
 

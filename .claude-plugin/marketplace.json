@@ -16,7 +16,7 @@
     {
       "name": "pr-tools",
       "source": "./plugins/pr-tools",
-      "description": "Skills for cleaning up pull requests — simplify-pr marks formatter/lint and import-path-only files as Viewed so reviewers see only the substantive diffs."
+      "description": "Skills for cleaning up pull requests — compress-pr marks formatter/lint and import-path-only files as Viewed so reviewers see only the substantive diffs."
     },
     {
       "name": "gcloud-tools",
