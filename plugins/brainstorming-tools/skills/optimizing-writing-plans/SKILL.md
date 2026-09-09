@@ -1,6 +1,6 @@
 ---
 name: optimizing-writing-plans
-description: Use when writing-plans has just produced an implementation plan and you're about to hand off to execution — specifically the moment you're tempted to offer execution options (subagent-driven vs inline) or invoke subagent-driven-development / executing-plans. Run this first, before that handoff. Triggers: plan file just written or committed; writing-plans just finished; brainstorm → spec → plan flow just completed. Do NOT use for arbitrary or external plans, generic "make this better" requests, or once execution has started.
+description: "Use when writing-plans has just produced an implementation plan and you're about to hand off to execution — specifically the moment you're tempted to offer execution options (subagent-driven vs inline) or invoke subagent-driven-development / executing-plans. Run this first, before that handoff. Triggers: plan file just written or committed; writing-plans just finished; brainstorm → spec → plan flow just completed. Do NOT use for arbitrary or external plans, generic \"make this better\" requests, or once execution has started."
 context: fork
 agent: general-purpose
 background: false
