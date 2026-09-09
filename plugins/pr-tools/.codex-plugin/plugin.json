@@ -1,0 +1,19 @@
+{
+  "name": "pr-tools",
+  "version": "0.4.0",
+  "description": "Skills for cleaning up pull requests \u2014 compress-pr marks formatter/lint and import-path-only files as Viewed so reviewers see only the substantive diffs.",
+  "author": {
+    "name": "Bartosz Polnik",
+    "email": "bartoszpolnik@gmail.com"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Pr Tools",
+    "shortDescription": "Skills for cleaning up pull requests.",
+    "longDescription": "Skills for cleaning up pull requests \u2014 compress-pr marks formatter/lint and import-path-only files as Viewed so reviewers see only the substantive diffs.",
+    "developerName": "Bartosz Polnik",
+    "category": "Productivity",
+    "capabilities": [],
+    "defaultPrompt": "Collapse the noise-only files in this PR."
+  }
+}

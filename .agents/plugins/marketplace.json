@@ -1,0 +1,44 @@
+{
+  "name": "bartekbp",
+  "interface": {
+    "displayName": "Bartekbp"
+  },
+  "plugins": [
+    {
+      "name": "brainstorming-tools",
+      "source": {
+        "source": "local",
+        "path": "./plugins/brainstorming-tools"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_USE"
+      },
+      "category": "Productivity"
+    },
+    {
+      "name": "pr-tools",
+      "source": {
+        "source": "local",
+        "path": "./plugins/pr-tools"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_USE"
+      },
+      "category": "Productivity"
+    },
+    {
+      "name": "gcloud-tools",
+      "source": {
+        "source": "local",
+        "path": "./plugins/gcloud-tools"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_USE"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
