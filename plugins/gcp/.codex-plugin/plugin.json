@@ -1,0 +1,19 @@
+{
+  "name": "gcp",
+  "version": "0.4.0",
+  "description": "Skills that wrap the gcloud CLI to analyze Google Cloud operational and security signals \u2014 waf-false-positives finds Cloud Armor WAF false positives, and error-digest produces a weekly Cloud Error Reporting digest of new and spiking error groups.",
+  "author": {
+    "name": "Bartosz Polnik",
+    "email": "bartoszpolnik@gmail.com"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "GCP",
+    "shortDescription": "Skills that wrap the gcloud CLI to analyze Google Cloud operational and security signals.",
+    "longDescription": "Skills that wrap the gcloud CLI to analyze Google Cloud operational and security signals \u2014 waf-false-positives finds Cloud Armor WAF false positives, and error-digest produces a weekly Cloud Error Reporting digest of new and spiking error groups.",
+    "developerName": "Bartosz Polnik",
+    "category": "Productivity",
+    "capabilities": [],
+    "defaultPrompt": "Any errors in dev in the past 10 hours?"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "pr",
+  "version": "0.5.0",
+  "description": "Skills for cleaning up pull requests \u2014 collapse-noise marks formatter/lint and import-path-only files as Viewed so reviewers see only the substantive diffs.",
+  "author": {
+    "name": "Bartosz Polnik",
+    "email": "bartoszpolnik@gmail.com"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "PR",
+    "shortDescription": "Skills for cleaning up pull requests.",
+    "longDescription": "Skills for cleaning up pull requests \u2014 collapse-noise marks formatter/lint and import-path-only files as Viewed so reviewers see only the substantive diffs.",
+    "developerName": "Bartosz Polnik",
+    "category": "Productivity",
+    "capabilities": [],
+    "defaultPrompt": "Collapse the noise-only files in this PR."
+  }
+}

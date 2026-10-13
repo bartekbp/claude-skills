@@ -6,9 +6,9 @@
 
 ```
 /plugin marketplace add bartekbp/claude-skills
-/plugin install brainstorming-tools@bartekbp
-/plugin install pr-tools@bartekbp
-/plugin install gcloud-tools@bartekbp
+/plugin install planning@bartekbp
+/plugin install pr@bartekbp
+/plugin install gcp@bartekbp
 ```
 
 (`bartekbp/claude-skills` resolves to this repo; Claude Code clones it over your authenticated GitHub access. `bartekbp` after the `@` is the marketplace name, not the install target.)
@@ -41,39 +41,39 @@ You can also toggle auto-update per marketplace from the `/plugin` UI (Marketpla
 
 ## Plugins
 
-### brainstorming-tools
+### planning
 
 | Skill | Triggers on |
 |-------|-------------|
-| `optimizing-writing-plans` | Immediately after the `superpowers:writing-plans` skill produces an implementation plan. An independent second-pass review that checks the plan against its spec across four lenses (soundness, completeness, executability, brevity + parallelism) and applies the safe fixes in place, flagging judgment calls. |
+| `refine-plan` | Immediately after the `superpowers:writing-plans` skill produces an implementation plan. An independent second-pass review that checks the plan against its spec across four lenses (soundness, completeness, executability, brevity + parallelism) and applies the safe fixes in place, flagging judgment calls. |
 
-### pr-tools
+### pr
 
 | Skill | Triggers on |
 |-------|-------------|
-| `compress-pr` | A PR mixes a substantive change with mechanical review noise — a mass formatter/linter pass or import-path-only edits from moving files. Marks the noise-only files as "Viewed" via the GitHub GraphQL API so they collapse by default, leaving only the real-change files expanded. |
+| `collapse-noise` | A PR mixes a substantive change with mechanical review noise — a mass formatter/linter pass or import-path-only edits from moving files. Marks the noise-only files as "Viewed" via the GitHub GraphQL API so they collapse by default, leaving only the real-change files expanded. |
 
-### gcloud-tools
+### gcp
 
 Requires the **`gcloud` CLI** (authenticated) and **Node.js** (for `npx tsx`) — these skills shell out to both.
 
 | Skill | Triggers on |
 |-------|-------------|
-| `analyze-cloud-armor` | Reviewing Google Cloud Armor / HTTPS Load Balancer logs to find WAF **false positives** (legitimate traffic blocked) and **false negatives** (malicious or unexpected traffic allowed). A bundled zero-dependency script (`npx tsx analyze.ts`) shells `gcloud`, aggregates the logs, and emits compact JSON with flagged candidates; the skill turns that into a ranked, actionable report. On first run it interviews you for your valid domains/path prefixes and caches the config under `~/.config/gcloud-tools/`; later runs reuse it. |
+| `waf-false-positives` | Reviewing Google Cloud Armor / HTTPS Load Balancer logs to find WAF **false positives** (legitimate traffic blocked) and **false negatives** (malicious or unexpected traffic allowed). A bundled zero-dependency script (`npx tsx analyze.ts`) shells `gcloud`, aggregates the logs, and emits compact JSON with flagged candidates; the skill turns that into a ranked, actionable report. On first run it interviews you for your valid domains/path prefixes and caches the config under `~/.config/gcloud-tools/`; later runs reuse it. |
 
 ## Layout
 
 ```
 .claude-plugin/marketplace.json     # marketplace manifest (name: bartekbp)
 plugins/
-  brainstorming-tools/
+  planning/
     .claude-plugin/plugin.json       # plugin manifest
     skills/
-      optimizing-writing-plans/SKILL.md  # skill
-  pr-tools/
+      refine-plan/SKILL.md  # skill
+  pr/
     .claude-plugin/plugin.json
     skills/
-      compress-pr/SKILL.md
+      collapse-noise/SKILL.md
 ```
 
 ## Adding a skill

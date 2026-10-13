@@ -1,0 +1,9 @@
+{
+  "name": "planning",
+  "version": "0.5.0",
+  "description": "Skills for working with superpowers implementation plans \u2014 refine-plan runs an independent second-pass review-and-fix on a freshly written plan.",
+  "author": {
+    "name": "Bartosz Polnik",
+    "email": "bartoszpolnik@gmail.com"
+  }
+}

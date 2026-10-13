@@ -5,10 +5,10 @@
   },
   "plugins": [
     {
-      "name": "brainstorming-tools",
+      "name": "planning",
       "source": {
         "source": "local",
-        "path": "./plugins/brainstorming-tools"
+        "path": "./plugins/planning"
       },
       "policy": {
         "installation": "AVAILABLE",
@@ -17,10 +17,10 @@
       "category": "Productivity"
     },
     {
-      "name": "pr-tools",
+      "name": "pr",
       "source": {
         "source": "local",
-        "path": "./plugins/pr-tools"
+        "path": "./plugins/pr"
       },
       "policy": {
         "installation": "AVAILABLE",
@@ -29,10 +29,10 @@
       "category": "Productivity"
     },
     {
-      "name": "gcloud-tools",
+      "name": "gcp",
       "source": {
         "source": "local",
-        "path": "./plugins/gcloud-tools"
+        "path": "./plugins/gcp"
       },
       "policy": {
         "installation": "AVAILABLE",

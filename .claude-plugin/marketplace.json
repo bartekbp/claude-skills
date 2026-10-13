@@ -9,19 +9,19 @@
   },
   "plugins": [
     {
-      "name": "brainstorming-tools",
-      "source": "./plugins/brainstorming-tools",
-      "description": "Skills for working with superpowers implementation plans — optimizing-writing-plans runs an independent second-pass review-and-fix on a freshly written plan."
+      "name": "planning",
+      "source": "./plugins/planning",
+      "description": "Skills for working with superpowers implementation plans — refine-plan runs an independent second-pass review-and-fix on a freshly written plan."
     },
     {
-      "name": "pr-tools",
-      "source": "./plugins/pr-tools",
-      "description": "Skills for cleaning up pull requests — compress-pr marks formatter/lint and import-path-only files as Viewed so reviewers see only the substantive diffs."
+      "name": "pr",
+      "source": "./plugins/pr",
+      "description": "Skills for cleaning up pull requests — collapse-noise marks formatter/lint and import-path-only files as Viewed so reviewers see only the substantive diffs."
     },
     {
-      "name": "gcloud-tools",
-      "source": "./plugins/gcloud-tools",
-      "description": "Skills that wrap the gcloud CLI to analyze Google Cloud operational and security signals — analyze-cloud-armor finds Cloud Armor WAF false positives, and analyze-error-reporting produces a weekly Cloud Error Reporting digest of new and spiking error groups."
+      "name": "gcp",
+      "source": "./plugins/gcp",
+      "description": "Skills that wrap the gcloud CLI to analyze Google Cloud operational and security signals — waf-false-positives finds Cloud Armor WAF false positives, and error-digest produces a weekly Cloud Error Reporting digest of new and spiking error groups."
     }
   ]
 }
