@@ -39,7 +39,7 @@ an expired token.
 One directory per skill, self-contained. Run from the suite's own directory:
 
 ```bash
-cd evals/compress-pr
+cd evals/collapse-noise
 npx promptfoo@latest eval --filter-providers '^skill$' -j 4 --no-cache
 npx promptfoo@latest view        # results in the browser
 ```
@@ -61,9 +61,9 @@ Discipline carried over from the marketplace harness, still true here:
 ```
 evals/
   providers/claude_code.py     the harness, shared by every suite
-  compress-pr/                 promptfooconfig.yaml, cases.py, asserts/, bin/gh (GitHub stub),
+  collapse-noise/                 promptfooconfig.yaml, cases.py, asserts/, bin/gh (GitHub stub),
                                fixtures/, cases/, tests/run-helper.sh, baseline.md, README.md
-  optimizing-writing-plans/    seeded-defect spec+plan fixtures, judge-free artifact grading
+  refine-plan/    seeded-defect spec+plan fixtures, judge-free artifact grading
 ```
 
 Only the provider is shared. Each suite decides its own label shape, metrics and prompt.
