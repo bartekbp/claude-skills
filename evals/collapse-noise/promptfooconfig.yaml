@@ -26,7 +26,7 @@ providers:
       system_file: ../plugins/pr/skills/collapse-noise/SKILL.md
       stub_path: collapse-noise/bin
       announce_base_dir: true
-      model: claude-sonnet-5
+      model: claude-sonnet-5-5
       effort: medium
 
   # Same skill, helper unreachable (no base-directory line): measures whether
@@ -38,7 +38,7 @@ providers:
     config:
       system_file: ../plugins/pr/skills/collapse-noise/SKILL.md
       stub_path: collapse-noise/bin
-      model: claude-sonnet-5
+      model: claude-sonnet-5-5
       effort: medium
 
   - id: file://../providers/claude_code.py
@@ -46,7 +46,7 @@ providers:
     config:
       system_file: collapse-noise/control.md
       stub_path: collapse-noise/bin
-      model: claude-sonnet-5
+      model: claude-sonnet-5-5
       effort: medium
 
 prompts:

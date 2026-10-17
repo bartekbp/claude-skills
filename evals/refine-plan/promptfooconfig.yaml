@@ -19,7 +19,7 @@ providers:
       announce_base_dir: true
       allow_edits: true
       capture_files: [plan.md]
-      model: claude-sonnet-5
+      model: claude-sonnet-5-5
       effort: medium
 
   - id: file://../providers/claude_code.py
@@ -28,7 +28,7 @@ providers:
       system_file: refine-plan/control.md
       allow_edits: true
       capture_files: [plan.md]
-      model: claude-sonnet-5
+      model: claude-sonnet-5-5
       effort: medium
 
 prompts:
