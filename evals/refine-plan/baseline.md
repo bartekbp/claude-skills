@@ -1,5 +1,8 @@
 # Baseline
 
+> **Model change, 2026-10-17.** Arms moved from `claude-sonnet-5` to `claude-sonnet-5-5`. Every run
+> below was measured on the older model; the next run is a re-baseline.
+
 ## 2026-08-16 — fifth lens (codebase fit) + codebase-drift case
 
 Skill arm only. New case `codebase-drift` (3 seeded flag defects: vocabulary drift,
