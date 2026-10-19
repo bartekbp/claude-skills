@@ -80,4 +80,4 @@ plugins/
 
 1. Create `plugins/<plugin>/skills/<skill-name>/SKILL.md` with `name` + `description` frontmatter.
 2. Commit and push.
-3. In Claude Code: `/plugin marketplace update bartekbp` to pull the latest.
+4. In Claude Code: `/plugin marketplace update bartekbp` to pull the latest.
