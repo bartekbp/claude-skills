@@ -79,5 +79,6 @@ plugins/
 ## Adding a skill
 
 1. Create `plugins/<plugin>/skills/<skill-name>/SKILL.md` with `name` + `description` frontmatter.
-2. Commit and push.
-3. In Claude Code: `/plugin marketplace update bartekbp` to pull the latest.
+2. Run `node --test scripts/references.test.ts`: every `<plugin>:<skill>` reference must name a skill of this repo or of a public plugin listed in that test. CI runs it on every pull request.
+3. Commit and push.
+4. In Claude Code: `/plugin marketplace update bartekbp` to pull the latest.
