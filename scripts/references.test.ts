@@ -97,7 +97,7 @@ test("findReferences and the checks catch what they should and leave prose alone
   assert.deepEqual(unresolved({ text: "Use planning:refine-plan, then superpowers:writing-plans.", skillsByPlugin }), []);
   assert.deepEqual(unresolved({ text: "see file:line and count:length, https://x.io/a:b", skillsByPlugin }), []);
   assert.equal(unresolved({ text: "Use planning:missing-skill", skillsByPlugin }).length, 1);
-  assert.equal(unresolved({ text: "then some-tools:ship-feature", skillsByPlugin }).length, 1);
+  assert.equal(unresolved({ text: "then other-tools:some-skill", skillsByPlugin }).length, 1);
   assert.equal(privateNames("run acme-private-tools:x").length, 1);
   assert.equal(privateNames("the private marketplace").length, 1);
   assert.equal(privateNames("git@github.com:me/skills-private.git").length, 1);
