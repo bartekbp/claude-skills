@@ -30,7 +30,11 @@ for c in "${cases[@]}"; do
   rm -f "$GH_STUB_STATE"
 
   fix_cmd=$(jq -r '.fix_cmd' "$SUITE_DIR/cases/$c/case.json")
-  if ! out=$(cd "$repo" && bash "$HELPER" acme/webapp 1 "$fix_cmd" 2>&1); then
+  rename_args=()
+  while IFS= read -r pair; do
+    [ -n "$pair" ] && rename_args+=(--rename "$pair")
+  done < <(jq -r '.renames // [] | .[]' "$SUITE_DIR/cases/$c/case.json")
+  if ! out=$(cd "$repo" && bash "$HELPER" acme/webapp 1 "$fix_cmd" "${rename_args[@]}" 2>&1); then
     # "Nothing to mark" exits 0; a nonzero exit here is a real helper failure.
     echo "FAIL $c — helper exited nonzero:"
     echo "$out" | tail -5 | sed 's/^/    /'
