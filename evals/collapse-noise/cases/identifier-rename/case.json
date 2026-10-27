@@ -1,0 +1,17 @@
+{
+  "id": "identifier-rename",
+  "notes": "Concept rename userBonus -> wagering across case styles, a moved file, and one file that renames and also changes a constant. The agent has to infer the pair from the diff (the file move user-bonus.ts -> wagering.ts names it) and pass --rename; the formatter and import checks alone catch nothing. schema/user_bonus.sql is rename-only but defines a stored name, so the contract guard keeps it expanded.",
+  "fix_cmd": "scripts/format.sh",
+  "renames": [
+    "userBonus=wagering"
+  ],
+  "noise": [
+    "src/wagering/wagering.ts",
+    "src/ledger.ts",
+    "src/labels.ts"
+  ],
+  "substantive": [
+    "src/payout.ts",
+    "schema/user_bonus.sql"
+  ]
+}

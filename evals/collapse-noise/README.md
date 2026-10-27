@@ -52,6 +52,7 @@ pass means a perfect run.
 |---|---|---|
 | `format-sweep` | 6 / 3 | formatter sweep; a mixed format+logic file and an added file must stay expanded |
 | `dir-move` | 4 / 2 | move fallout via rename detection + import-path-only importers; an importer that also adds a symbol must stay expanded |
+| `identifier-rename` | 3 / 2 | concept rename `userBonus` → `wagering` across case styles, a moved file rewritten below git's rename similarity, one file that renames and also changes a constant, and a rename-only `.sql` kept by the contract guard; the helper gets the pair from `renames` in case.json |
 | `mixed` | 5 / 3 | both noise classes at once; a block-style Go import change must stay expanded (documented blind spot) |
 | `clean-pr` | 0 / 2 | restraint: the only way to score is to mark nothing |
 | `big-pr` | 110 / 3 | 113 files, past the `files(first:100)` page size — pagination in fetch and verify, chunked mutations; a first-page-only client marks 100/110 and never sees the substantive files |

@@ -1,6 +1,6 @@
 ---
 name: collapse-noise
-description: Use whenever a PR carries mechanical review noise alongside the real change — a mass formatter/linter pass (often hundreds of files) or import-path-only edits from moving files between directories. Reviewers always want a clean diff, so apply this proactively after opening a PR or before requesting review on any such PR. Marks the noise-only files as "Viewed" via the GitHub GraphQL API so they collapse by default, leaving only the substantive files expanded in the Files Changed tab.
+description: Use whenever a PR carries mechanical review noise alongside the real change — a mass formatter/linter pass (often hundreds of files), import-path-only edits from moving files between directories, or a concept rename carried through many files (userBonusId -> wageringId). Reviewers always want a clean diff, so apply this proactively after opening a PR or before requesting review on any such PR. Marks the noise-only files as "Viewed" via the GitHub GraphQL API so they collapse by default, leaving only the substantive files expanded in the Files Changed tab.
 context: fork
 agent: general-purpose
 background: true
@@ -16,11 +16,12 @@ After a formatter or linter auto-fix pass (any `--write` / `--fix`-style run) �
 
 GitHub's **per-file "Viewed" state** collapses a file by default in the diff view. It is set per reviewer via the `markFileAsViewed` GraphQL mutation. Marking the noise-only files for yourself (or someone else with their token) leaves only the substantive files expanded.
 
-Four classes of noise are collapsed, each proven deterministically:
+Five classes of noise are collapsed, each proven deterministically:
 1. **Formatting / lint-fixable** — the auto-fixer applied to the base version reproduces the head version.
 2. **Import-path-only** — the base and head differ *only* in the module specifiers of `import` / `export … from` / `require` / dynamic `import()` statements. This is the signature of moving files between directories: the moved files (matched via git rename detection) and every file that imported them get path-only edits.
 3. **Whitespace-only** — base and head are identical under `diff -wB`, gated to extensions where whitespace carries no semantics (JS/TS, Java, Go, C-family, CSS, SQL, …). Python, YAML, Makefiles and Markdown are excluded: an indentation change there is a real change.
 4. **Canonical JSON/YAML** — same parsed data, different key order or layout. JSON via `jq -S` equality. YAML additionally requires the comment lines to be unchanged — parsing drops comments, and a comment-only edit is written *for* reviewers, so it must stay expanded.
+5. **Identifier-rename-only** — with `--rename old=new` pairs, the base with every case style of `old` rewritten to `new` equals head (alone, or with import-path or whitespace edits on top). Files that define stored or wire names stay expanded.
 
 ## Execution Context
 
@@ -87,6 +88,21 @@ This is intentionally semantic, not just textual: adding/removing an import, or 
 
 Caveat: blanking the path also collapses a genuine *retarget* of an import to a different module when that is the only change on the line (e.g. `./oldImpl` → `./newImpl` pointing at different behavior). From the diff alone this is indistinguishable from a move; if a PR mixes real retargets with move noise, spot-check before relying on the collapse.
 
+## Detecting "Only a Concept Was Renamed" Files
+
+A PR that renames a concept (`userBonus` → `wagering`, `award` → `wagering`) touches many files whose only change is that rename: `userBonusId` → `wageringId`, `UserBonusStatus` → `WageringStatus`, `user_bonus_id` → `wagering_id`, "award" → "wagering" in a comment. Neither the formatter nor the import blank catches them.
+
+**Find the pairs yourself before running the helper**, from the PR's own diff:
+- renamed files name them (`userbonus.entity.ts` → `wagering.entity.ts`, `casino-award-ledger.ts` → `casino-wagering-ledger.ts`);
+- the most frequent removed identifiers and their added counterparts confirm them: `git diff BASE HEAD -U0 | grep -E '^[-+][^-+]' | grep -oE '[A-Za-z_]+' | sort | uniq -c | sort -rn | head -50`;
+- the PR description or title often says it ("rename user bonus to wagering").
+
+Give each pair once in any case style; the helper rewrites every style: camelCase, PascalCase, snake_case, SCREAMING_SNAKE, kebab-case, flat lower (`userbonus`), flat capitalized (`Userbonus`) and spaced words ("user bonus"). An odd spelling the word split does not derive (here `Userbonus` as a class name split as one word) can be passed as its own pair. Pass only pairs you saw the PR apply consistently, and list them in the report.
+
+The rename is applied to the base, then compared with head, so a file with the rename **and** anything else stays expanded. A moved file whose rename rewrote most of its lines falls below git's 50% rename similarity; the helper pairs it with the deleted file whose renamed content it equals.
+
+**Schema and contract files stay expanded** even when the rename is all that changed: `.proto`, `.sql`, `.prisma`, `.graphql`, `.avsc`, `*.entity.ts`, and anything under `migrations/`, `schema/` or `kysely/`. Renaming a column, table or wire field there is a schema change a reviewer must see. The helper reports how many it kept.
+
 ## Generated Files: Judgment, Not Proof
 
 The helper only collapses what it can prove. Generated artifacts — codegen output, lockfiles, snapshots, built bundles — are usually obvious to you but not byte-provable without re-running their generator. Recognize them by their markers: an `@generated` or `DO NOT EDIT` header, generator banners ("Code generated by protoc-gen-go"), conventional paths (`*_pb2.py`, `*.pb.go`, `__snapshots__/`, `dist/`, `vendor/`), or a lockfile changing alongside its manifest (`package-lock.json` next to a `package.json` dep bump).
@@ -127,6 +143,8 @@ gh api graphql -f query='{ repository(owner:"OWNER",name:"REPO") { pullRequest(n
 #    sanity-check.
 #    Pass the project's own formatter/linter auto-fix command as the 3rd arg.
 ./mark-formatting-files-viewed.sh OWNER/REPO PR_NUMBER "<auto-fix-command>"  # e.g. "npx prettier --write ." or "pnpm exec biome check --write ."
+#    For a concept rename, add one --rename per pair you found:
+./mark-formatting-files-viewed.sh OWNER/REPO PR_NUMBER "<auto-fix-command>" --rename userBonus=wagering --rename award=wagering
 
 # 3. Verify
 gh api graphql -f query='{ repository(owner:"OWNER",name:"REPO") { pullRequest(number:NN) { files(first:100) { nodes { path viewerViewedState } } } } }' \
@@ -151,6 +169,9 @@ See [mark-formatting-files-viewed.sh](mark-formatting-files-viewed.sh) for the f
 | Moved file's diff classified as substantive | The moved file's base lives at its OLD path — the helper resolves it via `git diff -M` rename detection. If renames aren't detected (heavily rewritten file), it's correctly left expanded. |
 | Treated a real import retarget as move noise | Blanking the specifier can't tell `./a`→`./b` (move) from `./a`→`./differentImpl` (behavior change). Spot-check PRs that mix both. |
 | Expected Go import-path moves to collapse | The blank only covers JS/TS `import`/`export … from`/`require`/`import()`. Review Go moves manually. |
+| Concept-rename PR and every file classified substantive | Pass the rename pairs with `--rename old=new`; the helper does not guess them |
+| Passed a pair the PR did not apply everywhere (a word that also means something else) | A wrong pair only fails toward expanded unless head really says the new word; still pass only pairs the diff shows applied consistently |
+| Expected a renamed `.proto` field or entity column to collapse | Kept on purpose: a renamed stored or wire name is a schema change |
 | Trusted one `files(first:100)` page on a big PR | `first:100` is a page, not the PR — the first page can be all-noise alphabetically, so a non-paginating client classifies a partial list while *looking* healthy. The helper follows `pageInfo.endCursor` for the fetch and the verify, and refuses to classify when fetched ≠ `totalCount`. |
 
 ## Verification
