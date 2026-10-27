@@ -7,13 +7,18 @@
 #      specifiers of import/export/require statements (e.g. paths corrected after
 #      files were moved between directories). The moved files themselves are
 #      matched via git rename detection.
+#   3. Identifier-rename-only diffs   -> optional: with --rename old=new pairs,
+#      the base with every case style of `old` replaced by `new` (camelCase,
+#      PascalCase, snake_case, SCREAMING_SNAKE, kebab-case, flat, spaced words)
+#      equals head, possibly combined with import-path edits.
 #
 # Usage:
-#   mark-formatting-files-viewed.sh <owner/repo> <pr-number> "<auto-fix-cmd>"
+#   mark-formatting-files-viewed.sh <owner/repo> <pr-number> "<auto-fix-cmd>" [--rename old=new ...]
 #
 # Examples:
 #   mark-formatting-files-viewed.sh acme/web 56 "pnpm exec biome check --write ."
 #   mark-formatting-files-viewed.sh foo/bar 42 "pnpm exec prettier --write ."
+#   mark-formatting-files-viewed.sh foo/bar 42 "pnpm exec prettier --write ." --rename shopCart=basket --rename order=purchase
 #
 # Preconditions:
 #   - Run from inside a local checkout of the PR's repo.
@@ -24,11 +29,21 @@
 set -euo pipefail
 
 if [ $# -lt 3 ]; then
-  sed -n '4,20p' "$0"
+  sed -n '2,27p' "$0"
   exit 64
 fi
 
 REPO_FULL="$1"; PR="$2"; FIX_CMD="$3"
+shift 3
+RENAMES=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --rename)
+      [[ "${2:-}" == ?*=?* ]] || { echo "Error: --rename needs old=new, got '${2:-}'" >&2; exit 64; }
+      RENAMES+=("$2"); shift 2 ;;
+    *) echo "Error: unknown argument '$1'" >&2; exit 64 ;;
+  esac
+done
 OWNER="${REPO_FULL%/*}"; REPO="${REPO_FULL#*/}"
 
 # Blank out the module specifier in import/export/require/dynamic-import
@@ -38,6 +53,41 @@ OWNER="${REPO_FULL%/*}"; REPO="${REPO_FULL#*/}"
 # quoting). Single-quoted perl program so bash leaves $1/$2/$3 for perl.
 normalize_imports() {
   perl -pe 's/\b(from|import|require)(\s*\(?\s*)([\x27\x22])[^\x27\x22]*\3/${1}${2}${3}__IMPORT_PATH__${3}/g'
+}
+
+# Rewrite every case style of each --rename pair in stdin. Words are split on
+# camelCase humps and _ - separators, so shopCart=basket also rewrites
+# ShopCart, shop_cart, SHOP_CART, shop-cart, shopcart and "shop cart".
+# Longer spellings are replaced first; matching is on the whole spelling, so a
+# pair also rewrites it inside a longer identifier (getShopCarts).
+apply_renames() {
+  RENAME_PAIRS="$(printf '%s\n' "${RENAMES[@]}")" python3 -c '
+import os, re, sys
+def words(name):
+    return [w.lower() for w in re.findall(r"[A-Z]+(?![a-z])|[A-Z]?[a-z0-9]+", name)]
+def styles(ws):
+    cap = [w.capitalize() for w in ws]
+    return {
+        "camel": ws[0] + "".join(cap[1:]),
+        "pascal": "".join(cap),
+        "snake": "_".join(ws),
+        "upper": "_".join(ws).upper(),
+        "kebab": "-".join(ws),
+        "flat": "".join(ws),
+        "flatcap": "".join(ws).capitalize(),
+        "spaced": " ".join(ws),
+        "spacedcap": " ".join(ws).capitalize(),
+    }
+table = {}
+for line in os.environ["RENAME_PAIRS"].splitlines():
+    old, new = line.split("=", 1)
+    o, n = styles(words(old)), styles(words(new))
+    for k in o:
+        table.setdefault(o[k], n[k])
+keys = sorted(table, key=len, reverse=True)
+pattern = re.compile("|".join(re.escape(k) for k in keys))
+sys.stdout.write(pattern.sub(lambda m: table[m.group(0)], sys.stdin.read()))
+'
 }
 
 # Whitespace-only detection is gated to extensions where whitespace carries no
@@ -138,12 +188,38 @@ while IFS=$'\t' read -r _status old new; do
   [ -n "${new:-}" ] && RENAME_FROM["$new"]="$old"
 done < <(git diff -M --diff-filter=R --name-status "$BASE" "$HEAD_OID")
 
+# Files where a renamed name is stored or sent on the wire: proto and schema
+# definitions, migrations, ORM entities, generated DB types. Rename-only diffs
+# there stay expanded.
+CONTRACT_PATHS='(\.proto|\.sql|\.prisma|\.graphql|\.entity\.[jt]s|\.avsc)$|(^|/)(migrations|schema)/'
+
+renamed_equal() { # $1 base-file $2 head-file
+  local renamed="$HEAD_TMP_DIR/renamed.${1##*.}"
+  apply_renames < "$1" > "$renamed"
+  cmp -s "$renamed" "$2" \
+    || [ "$(normalize_imports < "$renamed")" = "$(normalize_imports < "$2")" ] \
+    || whitespace_only "$renamed" "$2"
+}
+
+# With --rename, index the files the PR deletes by their renamed content, so a
+# moved-and-renamed file whose git similarity is below 50% still finds its base.
+declare -A DELETED_BY_RENAMED_KEY
+if [ "${#RENAMES[@]}" -gt 0 ]; then
+  while IFS= read -r gone; do
+    [ -n "$gone" ] && [ -f "$WT/$gone" ] || continue
+    key=$(apply_renames < "$WT/$gone" | normalize_imports | sha1sum)
+    DELETED_BY_RENAMED_KEY["$key"]="$gone"
+  done < <(git diff --no-renames --diff-filter=D --name-only "$BASE" "$HEAD_OID")
+fi
+
 # Classify each PR file
 TO_MARK=()
 FORMAT_ONLY=0
 IMPORT_ONLY=0
 WS_ONLY=0
 CANON_ONLY=0
+RENAME_ONLY=0
+RENAME_CONTRACT=0
 SKIPPED_ADDED=0
 SKIPPED_SUBSTANTIVE=0
 
@@ -159,6 +235,12 @@ while IFS= read -r path; do
   base_path="$path"
   if [ ! -f "$WT/$base_path" ]; then
     base_path="${RENAME_FROM[$path]:-}"
+  fi
+  if { [ -z "$base_path" ] || [ ! -f "$WT/$base_path" ]; } && [ "${#RENAMES[@]}" -gt 0 ]; then
+    # A file rewritten by the rename is too different for git's rename
+    # detection; pair it with the deleted file whose renamed content it equals.
+    head_key=$(git show "$HEAD_OID:$path" 2>/dev/null | normalize_imports | sha1sum)
+    base_path="${DELETED_BY_RENAMED_KEY[$head_key]:-}"
   fi
   if [ -z "$base_path" ] || [ ! -f "$WT/$base_path" ]; then
     SKIPPED_ADDED=$((SKIPPED_ADDED+1))   # genuinely added (no base version)
@@ -180,6 +262,13 @@ while IFS= read -r path; do
     TO_MARK+=("$path"); WS_ONLY=$((WS_ONLY+1))
   elif canonical_equal "$base_file" "$head_file"; then
     TO_MARK+=("$path"); CANON_ONLY=$((CANON_ONLY+1))
+  elif [ "${#RENAMES[@]}" -gt 0 ] && renamed_equal "$base_file" "$head_file"; then
+    if [[ "$path" =~ $CONTRACT_PATHS ]]; then
+      # A renamed column, table or wire field is a schema change, not noise.
+      RENAME_CONTRACT=$((RENAME_CONTRACT+1)); SKIPPED_SUBSTANTIVE=$((SKIPPED_SUBSTANTIVE+1))
+    else
+      TO_MARK+=("$path"); RENAME_ONLY=$((RENAME_ONLY+1))
+    fi
   else
     SKIPPED_SUBSTANTIVE=$((SKIPPED_SUBSTANTIVE+1))
   fi
@@ -189,6 +278,10 @@ echo "Formatting-only:      $FORMAT_ONLY"
 echo "Import-path-only:     $IMPORT_ONLY"
 echo "Whitespace-only:      $WS_ONLY"
 echo "Canonical JSON/YAML:  $CANON_ONLY"
+if [ "${#RENAMES[@]}" -gt 0 ]; then
+  echo "Identifier-rename:    $RENAME_ONLY  (pairs: ${RENAMES[*]})"
+  echo "Rename, kept (schema/contract): $RENAME_CONTRACT  (counted as substantive)"
+fi
 echo "Substantive (review): $SKIPPED_SUBSTANTIVE"
 echo "Added (skip):         $SKIPPED_ADDED"
 

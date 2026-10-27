@@ -1,0 +1,17 @@
+{
+  "id": "identifier-rename",
+  "notes": "Concept rename shopCart -> basket across case styles, a moved file, and one file that renames and also changes a constant. The agent has to infer the pair from the diff (the file move shop-cart.ts -> basket.ts names it) and pass --rename; the formatter and import checks alone catch nothing. schema/shop_cart.sql is rename-only but defines a stored name, so the contract guard keeps it expanded.",
+  "fix_cmd": "scripts/format.sh",
+  "renames": [
+    "shopCart=basket"
+  ],
+  "noise": [
+    "src/basket/basket.ts",
+    "src/ledger.ts",
+    "src/labels.ts"
+  ],
+  "substantive": [
+    "src/payout.ts",
+    "schema/shop_cart.sql"
+  ]
+}
