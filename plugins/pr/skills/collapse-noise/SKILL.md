@@ -1,6 +1,7 @@
 ---
 name: collapse-noise
-description: Use whenever a PR carries mechanical review noise alongside the real change — a mass formatter/linter pass (often hundreds of files), import-path-only edits from moving files between directories, or a concept rename carried through many files (shopCartId -> basketId). Reviewers always want a clean diff, so apply this proactively after opening a PR or before requesting review on any such PR. Marks the noise-only files as "Viewed" via the GitHub GraphQL API so they collapse by default, leaving only the substantive files expanded in the Files Changed tab.
+description: Use whenever a PR carries mechanical review noise alongside the real change — a mass formatter/linter pass (often hundreds of files), import-path-only edits from moving files between directories, or a concept rename carried through many files (shopCartId -> basketId). Runs only when invoked by name (/pr:collapse-noise). Marks the noise-only files as "Viewed" via the GitHub GraphQL API so they collapse by default, leaving only the substantive files expanded in the Files Changed tab.
+disable-model-invocation: true
 context: fork
 agent: general-purpose
 background: true
